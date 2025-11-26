@@ -1,0 +1,21 @@
+{
+  "name": "registry-stagehand-worker",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "worker.mjs",
+  "scripts": {
+    "start": "node worker.mjs",
+    "dev": "node worker.mjs"
+  },
+  "dependencies": {
+    "@browserbasehq/sdk": "^2.6.0",
+    "@browserbasehq/stagehand": "^3.0.3",
+    "@supabase/supabase-js": "^2.84.0",
+    "dotenv": "^16.6.1",
+    "zod": "^3.25.67"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": ""
+}

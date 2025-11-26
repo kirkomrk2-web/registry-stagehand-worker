@@ -1,0 +1,546 @@
+<!doctype html>
+<html lang="bg">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CompanyBook Companies Viewer</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      padding: 24px;
+      max-width: 1400px;
+      margin: 0 auto;
+      background: #f5f5f5;
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 8px;
+    }
+    .subtitle {
+      color: #666;
+      font-size: 14px;
+      margin-bottom: 24px;
+    }
+    .input-section {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+    label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #333;
+    }
+    textarea {
+      width: 100%;
+      height: 160px;
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-family: 'Monaco', 'Courier New', monospace;
+      font-size: 12px;
+      resize: vertical;
+    }
+    textarea:focus {
+      outline: none;
+      border-color: #4285f4;
+    }
+    button {
+      background: #4285f4;
+      color: white;
+      border: none;
+      padding: 10px 24px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      margin-top: 12px;
+      transition: background 0.2s;
+    }
+    button:hover {
+      background: #3367d6;
+    }
+    button:active {
+      background: #2851a3;
+    }
+    .error {
+      color: #d93025;
+      margin-top: 12px;
+      padding: 12px;
+      background: #fce8e6;
+      border-radius: 4px;
+      display: none;
+    }
+    .error.show {
+      display: block;
+    }
+    .meta {
+      background: white;
+      padding: 12px 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      margin-bottom: 16px;
+      font-size: 13px;
+      color: #555;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .meta .count {
+      font-weight: 600;
+      color: #333;
+    }
+    .meta .sort-info {
+      font-style: italic;
+      color: #666;
+    }
+    .table-container {
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th, td {
+      padding: 12px 16px;
+      text-align: left;
+      border-bottom: 1px solid #e0e0e0;
+      font-size: 13px;
+    }
+    th {
+      background: #f8f9fa;
+      font-weight: 600;
+      color: #333;
+      cursor: pointer;
+      user-select: none;
+      position: relative;
+      transition: background 0.2s;
+    }
+    th:hover {
+      background: #e8eaed;
+    }
+    th::after {
+      content: '⇅';
+      margin-left: 6px;
+      color: #ccc;
+      font-size: 12px;
+    }
+    th.sort-asc::after {
+      content: '↑';
+      color: #4285f4;
+    }
+    th.sort-desc::after {
+      content: '↓';
+      color: #4285f4;
+    }
+    td {
+      color: #555;
+    }
+    tbody tr:hover {
+      background: #f8f9fa;
+    }
+    tbody tr:last-child td {
+      border-bottom: none;
+    }
+    .empty-state {
+      padding: 48px;
+      text-align: center;
+      color: #999;
+      font-style: italic;
+    }
+    details {
+      background: white;
+      padding: 16px 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      margin-top: 20px;
+    }
+    summary {
+      cursor: pointer;
+      font-weight: 600;
+      color: #333;
+      padding: 4px 0;
+    }
+    summary:hover {
+      color: #4285f4;
+    }
+    pre {
+      background: #f5f5f5;
+      padding: 16px;
+      border-radius: 4px;
+      overflow-x: auto;
+      font-size: 12px;
+      margin-top: 12px;
+      border: 1px solid #e0e0e0;
+    }
+    .instructions {
+      background: #e8f0fe;
+      border-left: 4px solid #4285f4;
+      padding: 16px;
+      margin-top: 16px;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+    .instructions h3 {
+      margin-top: 0;
+      color: #333;
+      font-size: 14px;
+    }
+    .instructions ul {
+      margin: 8px 0;
+      padding-left: 24px;
+    }
+    .instructions li {
+      margin: 4px 0;
+      color: #555;
+    }
+    .instructions code {
+      background: rgba(0,0,0,0.05);
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: 'Monaco', monospace;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <h1>🏢 CompanyBook Companies Viewer</h1>
+  <div class="subtitle">View and sort enriched EOOD company data from the CompanyBook pipeline</div>
+
+  <div class="input-section">
+    <label for="jsonInput">Paste JSON (companies[] or full user_registry_checks row):</label>
+    <textarea id="jsonInput" placeholder='Paste JSON here, e.g.: {"companies": [...]}'></textarea>
+    <button id="loadBtn">📊 Load Table</button>
+    <div id="error" class="error"></div>
+  </div>
+
+  <div id="meta" class="meta" style="display: none;">
+    <span class="count">Rows: <strong id="rowCount">0</strong></span>
+    <span class="sort-info" id="sortInfo">Click column headers to sort</span>
+  </div>
+
+  <div class="table-container">
+    <table id="companiesTable">
+      <thead>
+        <tr>
+          <th data-key="eik">EIK</th>
+          <th data-key="companyName">Company Name</th>
+          <th data-key="legalForm">Legal Form (BG)</th>
+          <th data-key="englishName">English Name</th>
+          <th data-key="businessStructureEn">Business Structure (EN)</th>
+          <th data-key="address">Address</th>
+          <th data-key="incorporationDate">Incorporation Date</th>
+          <th data-key="source">Source</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td colspan="8" class="empty-state">
+            Paste JSON data above and click "Load Table" to view companies
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <details>
+    <summary>📋 Example JSON Format</summary>
+    <div class="instructions">
+      <h3>You can paste either:</h3>
+      <ul>
+        <li><strong>Full user_registry_checks row:</strong> The complete object from Supabase with <code>companies</code> array</li>
+        <li><strong>Just the companies array:</strong> <code>[{...}, {...}]</code></li>
+      </ul>
+      <h3>Sorting:</h3>
+      <ul>
+        <li>Click any column header to sort ascending</li>
+        <li>Click again to sort descending</li>
+        <li>Click a third time to remove sorting</li>
+        <li>Use URL hash like <code>#sort=incorporationDate:desc,companyName:asc</code> for preset sorting</li>
+      </ul>
+    </div>
+    <pre>{
+  "id": "123e4567-e89b-12d3-a456-426614174000",
+  "email": "example@test.com",
+  "full_name": "Асен Митков Асенов",
+  "match_count": 7,
+  "any_match": true,
+  "companies": [
+    {
+      "eik": "202146707",
+      "companyName": "АСЕН МЕТАЛ 81",
+      "legalForm": "Еднолично дружество с ограничена отговорност",
+      "englishName": "ASEN METAL 81",
+      "businessStructureEn": "Single-Member LLC (EOOD)",
+      "address": "България, София, ул. Примерна 15",
+      "incorporationDate": "2018-03-15",
+      "source": "companybook/person"
+    },
+    {
+      "eik": "205521112",
+      "companyName": "ВЕРСАЙ 81",
+      "legalForm": "ЕООД",
+      "englishName": "VERSAY 81",
+      "businessStructureEn": "Single-Member LLC (EOOD)",
+      "address": "България, Пловдив, бул. Марица 42",
+      "incorporationDate": "2021-07-22",
+      "source": "companybook/person"
+    }
+  ]
+}</pre>
+  </details>
+
+  <script>
+    const jsonInput = document.getElementById('jsonInput');
+    const loadBtn = document.getElementById('loadBtn');
+    const errorDiv = document.getElementById('error');
+    const metaDiv = document.getElementById('meta');
+    const rowCountSpan = document.getElementById('rowCount');
+    const sortInfoSpan = document.getElementById('sortInfo');
+    const tbody = document.querySelector('#companiesTable tbody');
+    const tableHeaders = document.querySelectorAll('#companiesTable th[data-key]');
+
+    let currentCompanies = [];
+    let currentSort = []; // [{ key, dir }]
+
+    // Parse sort specification from URL hash
+    function parseSortFromHash() {
+      const hash = window.location.hash || '';
+      const m = hash.match(/sort=([^&]+)/);
+      if (!m) return [];
+      
+      return m[1].split(',').map(part => {
+        const [key, dir] = part.split(':');
+        return { key, dir: (dir === 'desc' ? 'desc' : 'asc') };
+      }).filter(s => s.key); // Filter out invalid entries
+    }
+
+    // Update URL hash to reflect current sort
+    function updateHashFromSort(sortSpec) {
+      if (!sortSpec.length) {
+        history.replaceState(null, '', window.location.pathname);
+        return;
+      }
+      const s = sortSpec.map(spec => `${spec.key}:${spec.dir}`).join(',');
+      window.location.hash = `sort=${encodeURIComponent(s)}`;
+    }
+
+    // Parse and validate JSON input
+    function parseInputJson() {
+      errorDiv.classList.remove('show');
+      errorDiv.textContent = '';
+      
+      try {
+        const text = jsonInput.value.trim();
+        if (!text) {
+          throw new Error('Please paste JSON data');
+        }
+        
+        const parsed = JSON.parse(text);
+        return extractCompaniesFromParsed(parsed);
+      } catch (e) {
+        errorDiv.textContent = '❌ Invalid JSON: ' + e.message;
+        errorDiv.classList.add('show');
+        return [];
+      }
+    }
+
+    // Extract companies array from various input formats
+    function extractCompaniesFromParsed(parsed) {
+      // If it's already an array, assume it's companies array
+      if (Array.isArray(parsed)) {
+        if (parsed.length === 0) {
+          errorDiv.textContent = '⚠️ Empty companies array';
+          errorDiv.classList.add('show');
+        }
+        return parsed;
+      }
+      
+      // If it's an object with companies property
+      if (parsed && Array.isArray(parsed.companies)) {
+        if (parsed.companies.length === 0) {
+          errorDiv.textContent = '⚠️ No companies found in this record';
+          errorDiv.classList.add('show');
+        }
+        return parsed.companies;
+      }
+      
+      // Invalid format
+      errorDiv.textContent = '❌ No companies[] found in input JSON. Expected array or object with companies property.';
+      errorDiv.classList.add('show');
+      return [];
+    }
+
+    // Apply sorting to companies array
+    function applySort(companies, sortSpec) {
+      if (!sortSpec.length) return companies.slice();
+      
+      return companies.slice().sort((a, b) => {
+        for (const { key, dir } of sortSpec) {
+          let av = a[key];
+          let bv = b[key];
+
+          // Special handling for incorporationDate (parse as date)
+          if (key === 'incorporationDate') {
+            av = av ? Date.parse(av) || 0 : 0;
+            bv = bv ? Date.parse(bv) || 0 : 0;
+          }
+          
+          // Special handling for eik (parse as number)
+          if (key === 'eik') {
+            av = av ? parseInt(String(av), 10) || 0 : 0;
+            bv = bv ? parseInt(String(bv), 10) || 0 : 0;
+          }
+
+          // Normalize null/undefined to empty string for comparison
+          if (av == null) av = '';
+          if (bv == null) bv = '';
+
+          // Compare values
+          if (av < bv) return dir === 'asc' ? -1 : 1;
+          if (av > bv) return dir === 'asc' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+
+    // Render table with sorted data
+    function renderTable(companies, sortSpec) {
+      tbody.innerHTML = '';
+      
+      if (companies.length === 0) {
+        const tr = document.createElement('tr');
+        const td = document.createElement('td');
+        td.colSpan = 8;
+        td.className = 'empty-state';
+        td.textContent = 'No companies to display';
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+        metaDiv.style.display = 'none';
+        updateHeaderStyles(null);
+        return;
+      }
+
+      const sorted = applySort(companies, sortSpec);
+      
+      // Render rows
+      sorted.forEach(company => {
+        const tr = document.createElement('tr');
+        const cols = ['eik', 'companyName', 'legalForm', 'englishName', 'businessStructureEn', 'address', 'incorporationDate', 'source'];
+        
+        cols.forEach(key => {
+          const td = document.createElement('td');
+          const value = company[key];
+          td.textContent = value != null ? String(value) : '';
+          td.title = td.textContent; // Tooltip for long values
+          tr.appendChild(td);
+        });
+        
+        tbody.appendChild(tr);
+      });
+
+      // Update meta information
+      rowCountSpan.textContent = sorted.length;
+      
+      if (sortSpec.length) {
+        sortInfoSpan.textContent = '📊 Sort: ' + sortSpec.map(s => {
+          const displayName = s.key.replace(/([A-Z])/g, ' $1').trim();
+          return `${displayName} ${s.dir === 'asc' ? '↑' : '↓'}`;
+        }).join(', ');
+      } else {
+        sortInfoSpan.textContent = 'Click column headers to sort';
+      }
+      
+      metaDiv.style.display = 'flex';
+      
+      // Update header styling
+      updateHeaderStyles(sortSpec);
+    }
+
+    // Update table header styling based on current sort
+    function updateHeaderStyles(sortSpec) {
+      tableHeaders.forEach(th => {
+        th.classList.remove('sort-asc', 'sort-desc');
+        
+        if (sortSpec && sortSpec.length) {
+          const sorted = sortSpec.find(s => s.key === th.dataset.key);
+          if (sorted) {
+            th.classList.add(sorted.dir === 'asc' ? 'sort-asc' : 'sort-desc');
+          }
+        }
+      });
+    }
+
+    // Handle column header clicks for sorting
+    function handleHeaderClick(e) {
+      const th = e.target.closest('th');
+      if (!th || !th.dataset.key) return;
+      
+      const key = th.dataset.key;
+      const existing = currentSort.find(s => s.key === key);
+      
+      if (!existing) {
+        // First click: sort ascending
+        currentSort = [{ key, dir: 'asc' }];
+      } else if (existing.dir === 'asc') {
+        // Second click: sort descending
+        currentSort = [{ key, dir: 'desc' }];
+      } else {
+        // Third click: remove sorting
+        currentSort = [];
+      }
+      
+      updateHashFromSort(currentSort);
+      renderTable(currentCompanies, currentSort);
+    }
+
+    // Attach click handlers to headers
+    tableHeaders.forEach(th => {
+      th.addEventListener('click', handleHeaderClick);
+    });
+
+    // Load button handler
+    loadBtn.addEventListener('click', () => {
+      currentCompanies = parseInputJson();
+      
+      if (currentCompanies.length > 0) {
+        // Try to use sort from hash if available
+        currentSort = parseSortFromHash();
+        renderTable(currentCompanies, currentSort);
+      }
+    });
+
+    // Load from hash on page load if data is in localStorage (for persistence)
+    window.addEventListener('load', () => {
+      // Try to restore last pasted JSON from localStorage
+      const savedJson = localStorage.getItem('companiesJson');
+      if (savedJson) {
+        jsonInput.value = savedJson;
+      }
+    });
+
+    // Save JSON to localStorage when textarea changes
+    jsonInput.addEventListener('input', () => {
+      if (jsonInput.value.trim()) {
+        localStorage.setItem('companiesJson', jsonInput.value);
+      } else {
+        localStorage.removeItem('companiesJson');
+      }
+    });
+
+    // Allow Ctrl+Enter to load table
+    jsonInput.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        loadBtn.click();
+      }
+    });
+  </script>
+</body>
+</html>

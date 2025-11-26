@@ -1,0 +1,35 @@
+{
+  "name": "browserbase-worker",
+  "version": "0.1.0",
+  "description": "Browserbase multi-browser worker with proxy configuration testing",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/worker.mjs",
+    "validate": "node src/worker.mjs --validate",
+    "check-proxies": "node src/worker.mjs --check-proxies",
+    "test": "node src/worker.mjs --test",
+    "full-test": "node src/worker.mjs --full-test",
+    "registry": "node src/registryWorker.mjs",
+    "registry:stagehand": "node src/registryStagehandWorker.mjs",
+    "registry:local": "node src/registryLocalWorker.mjs",
+    "companybook:test": "node src/companybook_test.mjs",
+    "verified:process-all": "node src/verifiedProfilesWorker.mjs --all",
+    "verified:list": "node src/verifiedProfilesWorker.mjs --list",
+    "verified:list-eood": "node src/verifiedProfilesWorker.mjs --list-eood",
+    "verified:list-et": "node src/verifiedProfilesWorker.mjs --list-et",
+    "verified:stats": "node src/verifiedProfilesWorker.mjs --stats"
+  },
+  "dependencies": {
+    "@browserbasehq/sdk": "^2.6.0",
+    "@browserbasehq/stagehand": "^3.0.5",
+    "@supabase/supabase-js": "^2.84.0",
+    "dotenv": "^16.6.1",
+    "puppeteer": "^23.11.1",
+    "puppeteer-core": "^23.8.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "license": "MIT"
+}
