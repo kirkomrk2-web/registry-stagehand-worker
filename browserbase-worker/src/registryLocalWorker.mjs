@@ -172,6 +172,79 @@ function parseAddress(fullAddress) {
 }
 
 /**
+ * Generate VAT number from EIK
+ * Format: "BG" + EIK
+ */
+function generateVATNumber(eik) {
+  if (!eik) return null;
+  return `BG${eik}`;
+}
+
+/**
+ * Generate email alias from English business name
+ * Pattern: {business-name}@madoff.33mail.com
+ */
+function generateEmailAlias(businessNameEn) {
+  if (!businessNameEn) return null;
+  
+  // Convert to lowercase, remove special chars, replace spaces with hyphens
+  const cleanName = businessNameEn
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')  // Remove special chars
+    .replace(/\s+/g, '-')           // Replace spaces with hyphens
+    .replace(/-+/g, '-')            // Collapse multiple hyphens
+    .replace(/^-|-$/g, '');         // Remove leading/trailing hyphens
+  
+  if (!cleanName) return null;
+  
+  return `${cleanName}@madoff.33mail.com`;
+}
+
+/**
+ * Parse owner name into first and last name (English)
+ * Bulgarian names: "Асен Митков Асенов" → first: "Asen", last: "Asenov"
+ * Assumes: FirstName MiddleName LastName format
+ */
+function parseOwnerName(fullName) {
+  if (!fullName || typeof fullName !== 'string') {
+    return { first_name: null, last_name: null };
+  }
+  
+  // For now, we'll use transliteration mapping (simplified)
+  // In production, you might use a proper transliteration library
+  const transliterationMap = {
+    'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ж': 'zh', 'з': 'z', 
+    'и': 'i', 'й': 'y', 'к': 'k', 'л': 'l', 'м': 'm', 'н': 'n', 'о': 'o', 'п': 'p',
+    'р': 'r', 'с': 's', 'т': 't', 'у': 'u', 'ф': 'f', 'х': 'h', 'ц': 'ts', 'ч': 'ch',
+    'ш': 'sh', 'щ': 'sht', 'ъ': 'a', 'ь': 'y', 'ю': 'yu', 'я': 'ya',
+    'А': 'A', 'Б': 'B', 'В': 'V', 'Г': 'G', 'Д': 'D', 'Е': 'E', 'Ж': 'Zh', 'З': 'Z',
+    'И': 'I', 'Й': 'Y', 'К': 'K', 'Л': 'L', 'М': 'M', 'Н': 'N', 'О': 'O', 'П': 'P',
+    'Р': 'R', 'С': 'S', 'Т': 'T', 'У': 'U', 'Ф': 'F', 'Х': 'H', 'Ц': 'Ts', 'Ч': 'Ch',
+    'Ш': 'Sh', 'Щ': 'Sht', 'Ъ': 'A', 'Ь': 'Y', 'Ю': 'Yu', 'Я': 'Ya'
+  };
+  
+  function transliterate(text) {
+    return text.split('').map(char => transliterationMap[char] || char).join('');
+  }
+  
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+  
+  if (parts.length === 0) {
+    return { first_name: null, last_name: null };
+  } else if (parts.length === 1) {
+    return { first_name: transliterate(parts[0]), last_name: null };
+  } else if (parts.length === 2) {
+    return { first_name: transliterate(parts[0]), last_name: transliterate(parts[1]) };
+  } else {
+    // Three or more parts: FirstName MiddleName(s) LastName
+    return { 
+      first_name: transliterate(parts[0]), 
+      last_name: transliterate(parts[parts.length - 1]) 
+    };
+  }
+}
+
+/**
  * Assign an available phone number from the SMS pool
  * Returns: { phone_number, sms_number_url, sms_country_code } or null if none available
  */
@@ -797,12 +870,22 @@ async function processUser(page, user) {
           // Parse address into components
           const addressParts = parseAddress(biz.address);
           
+          // Generate VAT number
+          const vatNumber = generateVATNumber(biz.eik);
+          
+          // Generate email alias
+          const emailAlias = generateEmailAlias(biz.englishName);
+          
+          // Parse owner name
+          const ownerNames = parseOwnerName(fullName);
+          
           // First, upsert the profile and get its ID
           const { data: profile, error: upsertError } = await supabase
             .from("verified_business_profiles")
             .upsert(
               {
                 eik: biz.eik,
+                vat_number: vatNumber,
                 business_name_bg: biz.companyName,
                 business_name_en: biz.englishName,
                 legal_form_bg: biz.legalForm,
@@ -814,9 +897,14 @@ async function processUser(page, user) {
                 region_en: addressParts.region_en,
                 country_en: addressParts.country_en,
                 postal_code: addressParts.postal_code,
+                email_alias_33mail: emailAlias,
+                email_alias_hostinger: 'admin@wallesters.com', // Central receiving mailbox
+                email_forwarding_active: false, // User needs to configure 33mail forwarding
                 incorporation_date: biz.incorporationDate,
                 is_active: true,
                 current_owner_name: fullName,
+                owner_first_name_en: ownerNames.first_name,
+                owner_last_name_en: ownerNames.last_name,
                 current_owner_ident: null,
                 source: biz.source || "companybook",
                 data_quality_score: calculateDataQualityScore(biz),
