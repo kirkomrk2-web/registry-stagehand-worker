@@ -1,7 +1,7 @@
 {
   "name": "browserbase-worker",
-  "version": "0.1.0",
-  "description": "Browserbase multi-browser worker with proxy configuration testing",
+  "version": "0.2.0",
+  "description": "Bulgarian Business Verification System - CompanyBook API, SMS & Email Monitoring",
   "private": true,
   "type": "module",
   "scripts": {
@@ -18,13 +18,21 @@
     "verified:list": "node src/verifiedProfilesWorker.mjs --list",
     "verified:list-eood": "node src/verifiedProfilesWorker.mjs --list-eood",
     "verified:list-et": "node src/verifiedProfilesWorker.mjs --list-et",
-    "verified:stats": "node src/verifiedProfilesWorker.mjs --stats"
+    "verified:stats": "node src/verifiedProfilesWorker.mjs --stats",
+    "verified:format": "node src/formatVerifiedProfiles.mjs --all",
+    "verified:format-json": "node src/formatVerifiedProfiles.mjs --all --json",
+    "verified:format-csv": "node src/formatVerifiedProfiles.mjs --all --csv",
+    "monitor:sms": "node src/smsMonitorWorker.mjs",
+    "monitor:email": "node src/emailMonitorWorker.mjs",
+    "monitor:all": "node -e \"Promise.all([import('./src/smsMonitorWorker.mjs'), import('./src/emailMonitorWorker.mjs')])\""
   },
   "dependencies": {
     "@browserbasehq/sdk": "^2.6.0",
     "@browserbasehq/stagehand": "^3.0.5",
     "@supabase/supabase-js": "^2.84.0",
     "dotenv": "^16.6.1",
+    "imap": "^0.8.19",
+    "mailparser": "^3.7.1",
     "puppeteer": "^23.11.1",
     "puppeteer-core": "^23.8.0"
   },
