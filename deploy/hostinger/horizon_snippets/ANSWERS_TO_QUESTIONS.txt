@@ -1,0 +1,10 @@
+Answers for Hostinger Horizons (short):
+
+1) Telegram handles and emails (use shared for now; we will personalize later):
+- telegram.handle: @wallester_support
+- telegram.url: https://t.me/wallester_support
+- email: support@wallesters.com
+
+Apply the same contact for all agents (Моника, Мария, Петя, Кристин, Рая, Виктория, Стефани, Йоана). We will update per-agent contacts later if needed.
+
+2) Fallback timer: 15 minutes (keep configurable; can be changed to 20 later).

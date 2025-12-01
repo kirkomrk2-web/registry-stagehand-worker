@@ -1,4 +1,5 @@
 {
+  "$schema": "https://json.schemastore.org/package",
   "name": "browserbase-worker",
   "version": "0.2.0",
   "description": "Bulgarian Business Verification System - CompanyBook API, SMS & Email Monitoring",
@@ -24,7 +25,10 @@
     "verified:format-csv": "node src/formatVerifiedProfiles.mjs --all --csv",
     "monitor:sms": "node src/smsMonitorWorker.mjs",
     "monitor:email": "node src/emailMonitorWorker.mjs",
-    "monitor:all": "node -e \"Promise.all([import('./src/smsMonitorWorker.mjs'), import('./src/emailMonitorWorker.mjs')])\""
+    "monitor:all": "node -e \"Promise.all([import('./src/smsMonitorWorker.mjs'), import('./src/emailMonitorWorker.mjs')])\"",
+    "wallester:register": "node src/wallesterRegistrationWorker.mjs",
+    "wallester:list": "node src/wallesterRegistrationWorker.mjs --list",
+    "wallester:bit": "node src/wallesterBitBrowserWorker.mjs"
   },
   "dependencies": {
     "@browserbasehq/sdk": "^2.6.0",
@@ -32,7 +36,7 @@
     "@supabase/supabase-js": "^2.84.0",
     "dotenv": "^16.6.1",
     "imap": "^0.8.19",
-    "mailparser": "^3.7.1",
+    "mailparser": "^3.9.0",
     "puppeteer": "^23.11.1",
     "puppeteer-core": "^23.8.0"
   },

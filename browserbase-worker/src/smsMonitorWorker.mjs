@@ -200,21 +200,36 @@ async function checkPhoneNumber(phoneRecord) {
       console.error(`[ERROR] Failed to update sms_numbers_pool: ${poolError.message}`);
     }
     
-    // If assigned to a profile, update the profile's verification status
+    // If assigned to a legacy company_id, update the corresponding owner/company JSON
     if (assigned_to) {
-      const { error: profileError } = await supabase
-        .from('verified_business_profiles')
-        .update({
-          sms_verification_code: verificationCode,
-          sms_verification_received_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', assigned_to);
-      
-      if (profileError) {
-        console.error(`[ERROR] Failed to update profile: ${profileError.message}`);
+      const { data: found, error: findErr } = await supabase
+        .rpc('owners_find_by_company_id', { p_company_id: assigned_to });
+
+      if (findErr) {
+        console.error(`[ERROR] Failed to locate owner by company_id ${assigned_to}: ${findErr.message}`);
       } else {
-        console.log(`[INFO] Updated profile ${assigned_to} with SMS code: ${verificationCode}`);
+        const row = Array.isArray(found) ? found[0] : found;
+        if (row) {
+          const { owner_id, eik } = row;
+          const now = new Date().toISOString();
+          const { error: updateErr } = await supabase.rpc('owners_company_update', {
+            p_owner_id: owner_id,
+            p_eik: String(eik),
+            p_updates: {
+              sms_verification_code: verificationCode,
+              sms_verification_received_at: now,
+              updated_at: now,
+            },
+          });
+
+          if (updateErr) {
+            console.error(`[ERROR] Failed to update owner company: ${updateErr.message}`);
+          } else {
+            console.log(`[INFO] Updated owner ${owner_id} company ${eik} with SMS code: ${verificationCode}`);
+          }
+        } else {
+          console.warn(`[WARN] No owner/company found for company_id ${assigned_to}`);
+        }
       }
     }
     

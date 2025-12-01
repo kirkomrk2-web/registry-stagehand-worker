@@ -1,0 +1,18 @@
+Type,Variables,Default Value,Required
+String,currentEik,202146707,true
+String,supabaseRow,,false
+String,businessNameEn,,false
+String,businessNameBg,,false
+String,ownerFirst,,false
+String,ownerLast,,false
+String,phoneNumber,,false
+String,smsUrl,,false
+String,cityEn,,false
+String,regionEn,,false
+String,postalCode,,false
+String,vatNumber,,false
+String,emailAlias33,,false
+String,emailHost,,false
+String,ownerNameBg,,false
+String,fullAddress,,false
+String,profileStatus,,false

@@ -1,0 +1,11 @@
+[
+  { "name": "id", "type": "string", "required": true },
+  { "name": "business_name_en", "type": "string", "required": true },
+  { "name": "eik", "type": "string", "required": true },
+  { "name": "vat", "type": "string", "required": false },
+  { "name": "entity_type", "type": "string", "required": true },
+  { "name": "city_en", "type": "string", "required": false },
+  { "name": "region_en", "type": "string", "required": false },
+  { "name": "country_en", "type": "string", "required": false },
+  { "name": "owner_full_name", "type": "string", "required": true }
+]

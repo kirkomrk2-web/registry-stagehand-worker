@@ -19,12 +19,13 @@ const {
   HOSTINGER_IMAP_PORT,
   HOSTINGER_IMAP_USER,
   HOSTINGER_IMAP_PASSWORD,
+  PRIMARY_MAILBOX,
 } = process.env;
 
-// Defaults for Hostinger
+// Defaults for Hostinger - now using support@33mailbox.com
 const IMAP_HOST = HOSTINGER_IMAP_HOST || 'imap.hostinger.com';
 const IMAP_PORT = parseInt(HOSTINGER_IMAP_PORT || '993', 10);
-const IMAP_USER = HOSTINGER_IMAP_USER;
+const IMAP_USER = PRIMARY_MAILBOX || HOSTINGER_IMAP_USER || 'support@33mailbox.com';
 const IMAP_PASSWORD = HOSTINGER_IMAP_PASSWORD;
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
@@ -76,21 +77,28 @@ function extractVerificationCode(emailText) {
 }
 
 /**
- * Extract 33mail alias from email headers
+ * Extract 33mailbox alias from email headers
  * Looks at the original "To" address
+ * Supports both @madoff.33mail.com (old) and @33mailbox.com (new)
  */
 function extract33MailAlias(headers) {
-  // Check various headers for the 33mail alias
+  // Check various headers for the alias
   const toHeader = headers['x-original-to'] || 
                    headers['delivered-to'] || 
                    headers['to'];
   
   if (!toHeader) return null;
   
-  // Match pattern: xxx@madoff.33mail.com
-  const match = toHeader.match(/([a-z0-9-]+)@madoff\.33mail\.com/i);
+  // Match pattern: xxx@33mailbox.com (NEW FORMAT - no hyphens)
+  let match = toHeader.match(/([a-z0-9]+)@33mailbox\.com/i);
   if (match) {
-    return `${match[1]}@madoff.33mail.com`;
+    return `${match[1].toLowerCase()}@33mailbox.com`;
+  }
+  
+  // Fallback: Match old pattern xxx@madoff.33mail.com
+  match = toHeader.match(/([a-z0-9-]+)@madoff\.33mail\.com/i);
+  if (match) {
+    return `${match[1].toLowerCase()}@madoff.33mail.com`;
   }
   
   return null;
@@ -99,21 +107,21 @@ function extract33MailAlias(headers) {
 /**
  * Find profile by email alias
  */
-async function findProfileByEmailAlias(emailAlias) {
+async function findOwnerCompanyByEmailAlias(emailAlias) {
   if (!emailAlias) return null;
-  
-  const { data: profile, error } = await supabase
-    .from('verified_business_profiles')
-    .select('id, eik, business_name_en, email_alias_33mail')
-    .eq('email_alias_33mail', emailAlias.toLowerCase())
-    .single();
-  
+
+  const { data, error } = await supabase
+    .rpc('owners_find_by_email_alias', { p_alias: emailAlias.toLowerCase() });
+
   if (error) {
-    console.log(`[INFO] No profile found for alias: ${emailAlias}`);
+    console.log(`[INFO] No owner/company found for alias: ${emailAlias}`);
     return null;
   }
-  
-  return profile;
+
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) return null;
+
+  return { ownerId: row.owner_id, eik: row.eik, company: row.company };
 }
 
 /**
@@ -229,24 +237,27 @@ async function fetchNewEmails() {
                     receivedAt: new Date().toISOString(),
                   });
                   
-                  // Try to update profile if alias found
+                  // Try to update owner/company if alias found
                   if (emailAlias) {
-                    const profile = await findProfileByEmailAlias(emailAlias);
-                    if (profile) {
-                      const { error: updateError } = await supabase
-                        .from('verified_business_profiles')
-                        .update({
+                    const found = await findOwnerCompanyByEmailAlias(emailAlias);
+                    if (found) {
+                      const { ownerId, eik } = found;
+                      const now = new Date().toISOString();
+                      const { error: updateError } = await supabase.rpc('owners_company_update', {
+                        p_owner_id: ownerId,
+                        p_eik: String(eik),
+                        p_updates: {
                           email_confirmation_code: verificationCode,
-                          email_confirmation_received_at: new Date().toISOString(),
+                          email_confirmation_received_at: now,
                           email_forwarding_active: true,
-                          updated_at: new Date().toISOString(),
-                        })
-                        .eq('id', profile.id);
-                      
+                          updated_at: now,
+                        },
+                      });
+
                       if (updateError) {
-                        console.error(`[ERROR] Failed to update profile: ${updateError.message}`);
+                        console.error(`[ERROR] Failed to update owner/company: ${updateError.message}`);
                       } else {
-                        console.log(`[INFO] Updated profile ${profile.business_name_en} (${profile.eik}) with email code: ${verificationCode}`);
+                        console.log(`[INFO] Updated owner ${ownerId} company ${eik} with email code: ${verificationCode}`);
                       }
                     }
                   }
@@ -332,27 +343,28 @@ async function checkEmailsSimple() {
   console.log('[INFO] Make sure IMAP dependencies are installed:');
   console.log('  npm install imap mailparser');
   
-  // Get profiles awaiting email verification
-  const { data: profiles, error } = await supabase
-    .from('verified_business_profiles')
-    .select('id, eik, business_name_en, email_alias_33mail')
-    .not('email_alias_33mail', 'is', null)
-    .is('email_confirmation_code', null)
+  // Get companies awaiting email verification from the owners_by_company view
+  const { data: rows, error } = await supabase
+    .from('owners_by_company')
+    .select('owner_id, eik, company')
+    .is('company->>email_confirmation_code', null)
+    .not('company->>email_alias_33mail', 'is', null)
     .limit(10);
-  
+
   if (error) {
-    console.error('[ERROR] Failed to fetch profiles:', error.message);
+    console.error('[ERROR] Failed to fetch companies:', error.message);
     return;
   }
-  
-  if (!profiles || profiles.length === 0) {
-    console.log('[INFO] No profiles awaiting email verification.');
+
+  if (!rows || rows.length === 0) {
+    console.log('[INFO] No companies awaiting email verification.');
     return;
   }
-  
-  console.log(`[INFO] ${profiles.length} profiles awaiting email verification:`);
-  for (const p of profiles) {
-    console.log(`  - ${p.business_name_en} (${p.eik}): ${p.email_alias_33mail}`);
+
+  console.log(`[INFO] ${rows.length} companies awaiting email verification:`);
+  for (const r of rows) {
+    const c = r.company || {};
+    console.log(`  - ${c.business_name_en || 'Unknown'} (${c.eik || r.eik}): ${c.email_alias_33mail || 'n/a'}`);
   }
 }
 

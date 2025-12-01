@@ -209,6 +209,7 @@
       font-size: 12px;
     }
   </style>
+  <link rel="stylesheet" href="chat-agent.css" />
 </head>
 <body>
   <h1>🏢 CompanyBook Companies Viewer</h1>
@@ -541,6 +542,18 @@
         loadBtn.click();
       }
     });
+  </script>
+  <script src="chat-agent.js"></script>
+  <script>
+    (function() {
+      const agents = [
+        { name: 'Мария', role: 'Клиентски агент', avatarUrl: null, telegram: { handle: '@maria_support', url: 'https://t.me/maria_support' }, email: 'support@wallesters.com' },
+        { name: 'Моника', role: 'Поддръжка', avatarUrl: null, telegram: { handle: '@monika_support', url: 'https://t.me/monika_support' }, email: 'support@wallesters.com' }
+      ];
+      const widget = window.ChatAgentWidget && ChatAgentWidget.initWithAgents(agents, { fallbackMinutes: 15 });
+      // Demo: comment out next line in production
+      if (widget && widget.seedDemo) widget.seedDemo();
+    })();
   </script>
 </body>
 </html>

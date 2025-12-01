@@ -182,22 +182,20 @@ function generateVATNumber(eik) {
 
 /**
  * Generate email alias from English business name
- * Pattern: {business-name}@madoff.33mail.com
+ * Pattern: {businessname}@33mailbox.com (NO hyphens, NO spaces)
  */
 function generateEmailAlias(businessNameEn) {
   if (!businessNameEn) return null;
   
-  // Convert to lowercase, remove special chars, replace spaces with hyphens
+  // Convert to lowercase, remove ALL special chars (including spaces and hyphens)
   const cleanName = businessNameEn
     .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, '')  // Remove special chars
-    .replace(/\s+/g, '-')           // Replace spaces with hyphens
-    .replace(/-+/g, '-')            // Collapse multiple hyphens
-    .replace(/^-|-$/g, '');         // Remove leading/trailing hyphens
+    .replace(/[^a-z0-9]/g, '')     // Remove everything except letters and numbers
+    .trim();
   
   if (!cleanName) return null;
   
-  return `${cleanName}@madoff.33mail.com`;
+  return `${cleanName}@33mailbox.com`;
 }
 
 /**

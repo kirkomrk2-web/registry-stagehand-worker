@@ -1,0 +1,22 @@
+File: src/lib/agents.js
+Task: Add per-agent contacts while keeping avatars and responses.
+
+Patch (copy between BEGIN/END and paste):
+BEGIN_PATCH
+// Add contact object per agent (example shown for first two; repeat similarly)
+export const AGENT_CONFIG = {
+  "Моника": {
+    avatarUrl: "https://horizons-cdn.hostinger.com/00fb9e89-7859-4de2-8701-7ef551e275a4/06696e280a22c07bcede83d1517792de.jpg",
+    contact: { email: "support@yourdomain.com", telegram: { handle: "@monika_support", url: "https://t.me/monika_support" } },
+    responses: baseResponses,
+  },
+  "Мария": {
+    avatarUrl: "https://horizons-cdn.hostinger.com/00fb9e89-7859-4de2-8701-7ef551e275a4/1a68e650efa5747c35b6f70aea136c33.jpg",
+    contact: { email: "support@yourdomain.com", telegram: { handle: "@maria_support", url: "https://t.me/maria_support" } },
+    responses: baseResponses,
+  },
+  // Do the same for: "Петя", "Кристин", "Рая", "Виктория", "Стефани", "Йоана"
+};
+END_PATCH
+
+Note: If you want unique emails per agent, change contact.email accordingly.

@@ -146,6 +146,9 @@ SUPABASE_KEY=your-service-role-key
 
 # CompanyBook API (if authentication needed in future)
 COMPANYBOOK_API_BASE=https://api.companybook.bg/api
+
+# DuoPlus Cloud Phone RPA
+DUOPLUS_API_KEY=6938ed78-7e1b-4b93-be9e-9f47d23abad0
 ```
 
 ### Run Registry Worker

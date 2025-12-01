@@ -1,0 +1,477 @@
+<!doctype html>
+<html lang="bg">
+<head>
+  <meta charset="utf-8" />
+  <title>Stagehand Registry Pipeline Visualizer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root{
+      --bg:#0f1222; --panel:#171a2e; --muted:#8ea0c0; --text:#e6ecff; --accent:#6cc3ff; --accent2:#9d7cff; --ok:#35d07f; --warn:#ffd166; --err:#ff6b6b; --border:#242845;
+    }
+    *{box-sizing:border-box}
+    body{margin:0; font-family:Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji"; background:var(--bg); color:var(--text)}
+    header{padding:20px 24px; border-bottom:1px solid var(--border); background:linear-gradient(180deg, #151830 0%, #0f1222 100%)}
+    header h1{margin:0; font-size:20px}
+    header p{margin:6px 0 0; color:var(--muted); font-size:13px}
+    main{padding:20px; max-width:1250px; margin:0 auto}
+    .grid{display:grid; gap:16px}
+    .cols-3{grid-template-columns:repeat(3,1fr)}
+    .cols-2{grid-template-columns:repeat(2,1fr)}
+    @media (max-width: 1024px){.cols-3{grid-template-columns:1fr}.cols-2{grid-template-columns:1fr}}
+    .card{background:var(--panel); border:1px solid var(--border); border-radius:12px}
+    .card h3{margin:0; padding:12px 14px; border-bottom:1px solid var(--border); font-size:14px; color:#cfe1ff}
+    .card .content{padding:12px 14px}
+    .row{display:flex; gap:12px; flex-wrap:wrap}
+    .row > *{flex:1}
+    input, textarea, button, select{font:inherit}
+    input, textarea, select{width:100%; background:#0f1222; color:var(--text); border:1px solid var(--border); border-radius:8px; padding:10px 12px}
+    textarea{min-height:120px; resize:vertical}
+    label{display:block; color:var(--muted); font-size:12px; margin-bottom:6px}
+    .hint{color:var(--muted); font-size:12px}
+    .small{font-size:12px}
+
+    button{background:linear-gradient(180deg, #1f2446, #171a2e); color:#e9f2ff; border:1px solid var(--border); border-radius:10px; padding:10px 14px; cursor:pointer}
+    button:hover{filter:brightness(1.08)}
+    button.ok{border-color:#1c5; background:linear-gradient(180deg, #1b5e3a, #114a2e)}
+    button.warn{border-color:#aa7; background:linear-gradient(180deg, #574a1a, #40360f)}
+
+    .pill{display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border-radius:9999px; border:1px solid var(--border); background:#11142a; color:#cfe1ff}
+    .pill .dot{width:8px; height:8px; border-radius:50%}
+
+    .mono{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace}
+    pre{margin:0; padding:12px; overflow:auto; background:#0d1020; border:1px dashed #2a2e4b; border-radius:8px}
+
+    .two-cols{display:grid; grid-template-columns: 1fr 36px 1fr; gap:12px}
+    .col{display:flex; flex-direction:column; gap:10px}
+    .arrow{display:flex; align-items:center; justify-content:center; color:#7da7ff}
+    .arrow:before{content:""; display:block; height:1px; background:#304680; flex:1}
+    .arrow span{padding:0 8px; font-size:12px; color:#99b7ff}
+
+    .badge{display:inline-block; padding:2px 6px; border-radius:6px; border:1px solid var(--border); font-size:11px; background:#10142a; color:#cfe1ff}
+    .muted{color:var(--muted)}
+    .ok{color:var(--ok)} .warn-text{color:var(--warn)} .err{color:var(--err)}
+    .br{height:10px}
+    table{width:100%; border-collapse:collapse; font-size:12px}
+    th,td{border-bottom:1px solid var(--border); padding:8px; text-align:left}
+    th{color:#bcd4ff; font-weight:600}
+    details{border:1px solid var(--border); border-radius:8px; background:#10122a}
+    summary{padding:10px 12px; cursor:pointer; color:#cfe1ff}
+    details .inner{padding:0 12px 12px}
+
+    .error{border:1px solid #8b2b2b; background:rgba(255,75,75,0.08); color:#ffc0c0; border-radius:8px; padding:10px 12px}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Визуализация на процеса: Проверка по пълно име и решения</h1>
+    <p class="small">Live проверки чрез CompanyBook API през локален proxy + точна филтрация по три имена. Виж всички междинни JSON‑и в реда на получаването им.</p>
+  </header>
+  <main>
+
+    <section class="card">
+      <h3>0) Live checker (CompanyBook API през локален proxy)</h3>
+      <div class="content">
+        <div id="errorBanner" class="error" style="display:none"></div>
+        <div class="row">
+          <div>
+            <label>Трите имена (мин. 3 символа)</label>
+            <input id="liveName" placeholder="Пример: Асен Митков Асенов" />
+          </div>
+          <div>
+            <label>Лимит кандидати</label>
+            <input id="liveLimit" value="5" />
+          </div>
+        </div>
+        <div class="row" style="margin-top:8px; align-items:center">
+          <button id="liveSearch" class="ok">Live търсене и извличане</button>
+          <label style="display:flex; gap:8px; align-items:center; max-width:max-content"><input type="checkbox" id="strict" checked /> Стриктно съвпадение по три имена</label>
+          <label style="display:flex; gap:8px; align-items:center; max-width:max-content"><input type="checkbox" id="showSimilar" /> Покажи и подобни (ако няма точни)</label>
+          <label style="display:flex; gap:8px; align-items:center; max-width:max-content"><input type="checkbox" id="showEmpty" /> Покажи кандидати без намерени фирми</label>
+          <label style="display:flex; gap:8px; align-items:center; max-width:max-content"><input type="checkbox" id="autoEnrich100" checked /> Auto enrich по EIK (100% owned / SoleCapitalOwner / ET)</label>
+          <label style="display:flex; gap:8px; align-items:center; max-width:max-content"><input type="checkbox" id="enrichPerson" /> Enrich person (with_data)</label>
+          <label style="display:flex; gap:8px; align-items:center; max-width:max-content"><input type="checkbox" id="enrichCompanies" /> Enrich companies (with_data)</label>
+          <div class="hint">Първо стартирай proxy: <span class="badge">node server/companybook_proxy.mjs</span> → http://localhost:4321</div>
+        </div>
+        <div class="br"></div>
+        <div id="liveResults" class="list"></div>
+        <div id="eligibleBlock" style="display:none; margin-top:12px">
+          <div class="row" style="align-items:center; gap:8px">
+            <h4 style="margin:0; color:#cfe1ff">Детайли за фирмите (по EIK) с 100% участие</h4>
+            <button id="downloadEligible" class="warn" style="max-width:max-content">Свали JSON</button>
+          </div>
+          <div class="br"></div>
+          <details open>
+            <summary>Companies (with_data) – EIK → детайли</summary>
+            <div class="inner"><pre id="eligibleDetails" class="mono">[]</pre></div>
+          </details>
+          <div class="row" style="align-items:center; gap:8px; margin-top:10px">
+            <input id="supabaseUrl" placeholder="Supabase Functions Base URL (https://<project>.supabase.co/functions/v1)" />
+            <input id="anonKey" placeholder="SUPABASE_ANON_KEY (optional)" />
+            <input id="adminKey" placeholder="ADMIN_PUSH_KEY (x-admin-key)" />
+            <button id="pushToSupabase" class="ok" style="max-width:max-content">Push to Supabase (owners_push_slim)</button>
+          </div>
+          <div class="hint">Ще използва текущото име от полето „Трите имена“. Ще изпрати само EOOD/ET, активни (status N/E) и с английско име.</div>
+        </div>
+        <details style="margin-top:10px">
+          <summary>Raw API trace (в реда на заявките)</summary>
+          <div class="inner"><pre id="apiTrace" class="mono">[]</pre></div>
+        </details>
+      </div>
+    </section>
+
+    <section class="card">
+      <h3>1) Визуална схема на потока</h3>
+      <div class="content">
+        <div class="two-cols">
+          <div class="col">
+            <div class="node"><h4>users_pending</h4><div class="desc">row: { full_name, email, status: "pending" }</div></div>
+            <div class="arrow"><span>HTTP POST</span></div>
+            <div class="node"><h4>Edge: registry_check</h4><div class="desc">/api/people/search → /api/relationships/:identifier (ownership) → user_registry_checks</div></div>
+            <div class="arrow"><span>status = ready_for_stagehand | no_match</span></div>
+            <div class="node"><h4>Edge: users_pending_worker</h4><div class="desc">upsert verified_owners + allocate phone/alias → users_pending.status</div></div>
+          </div>
+          <div></div>
+          <div class="col">
+            <div class="node"><h4>Stagehand Worker</h4><div class="desc">Официален регистър (UI scrape) → user_registry_checks</div></div>
+            <div class="arrow"><span>poll</span></div>
+            <div class="node"><h4>SMS Monitor</h4><div class="desc">smstome → owners_company_update (RPC)</div></div>
+            <div class="arrow"><span>poll</span></div>
+            <div class="node"><h4>Email Monitor (Hostinger IMAP)</h4><div class="desc">33mail alias → owners_company_update (RPC)</div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h3>2) Стъпки и връзки (с отметки)</h3>
+      <div class="content grid cols-2">
+        <div>
+          <ol class="checklist" id="todo">
+            <li><label><input type="checkbox" checked> Настройка на локален proxy към CompanyBook</label></li>
+            <li><label><input type="checkbox" checked> Live търсене по три имена (точна филтрация)</label></li>
+            <li><label><input type="checkbox" checked> Извличане на ownership мрежа и класификация (EOOD/ET/100%)</label></li>
+            <li><label><input type="checkbox" checked> Обогатяване на компании по EIK (по желание)</label></li>
+            <li><label><input type="checkbox"> Запис в user_registry_checks</label></li>
+            <li><label><input type="checkbox"> Upsert в verified_owners + алокации (phone, 33mail)</label></li>
+            <li><label><input type="checkbox"> Монитори: SMS/Email попълват кодове през RPC</label></li>
+          </ol>
+          <div class="hint">Можеш да маркираш стъпките ръчно според текущото изпълнение при теб.</div>
+        </div>
+        <div class="mind">
+          <ul>
+            <li>Вход: full_name/email
+              <ul>
+                <li>registry_check
+                  <ul>
+                    <li>people/search → candidates</li>
+                    <li>relationships/:identifier?type=ownership → extract 100% owner | ET</li>
+                    <li>companies/:uic?with_data=true → enrich</li>
+                    <li>insert user_registry_checks, update users_pending.status</li>
+                  </ul>
+                </li>
+                <li>users_pending_worker
+                  <ul>
+                    <li>people/search → pick person with companies</li>
+                    <li>allocate phone (sms_numbers_pool), gen 33mail alias</li>
+                    <li>upsert verified_owners (companies, top_company)</li>
+                  </ul>
+                </li>
+                <li>Email Monitor (Hostinger)
+                  <ul>
+                    <li>IMAP INBOX → parse code → owners_company_update()</li>
+                  </ul>
+                </li>
+                <li>SMS Monitor (smstome)
+                  <ul>
+                    <li>Fetch page → parse code → owners_company_update()</li>
+                  </ul>
+                </li>
+              </ul>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h3>3) Диагностични панели (симулация)</h3>
+      <div class="content grid cols-2">
+        <div>
+          <div class="pill"><span class="dot" style="background:var(--ok)"></span>Статус users_pending: <strong>ready_for_stagehand/no_match</strong></div>
+          <details style="margin-top:10px"><summary>Payload към user_registry_checks</summary><div class="inner"><pre class="mono">{"email":"...","full_name":"...","match_count":N,"any_match":true/false,"companies":[...]}</pre></div></details>
+        </div>
+        <div>
+          <div class="pill"><span class="dot" style="background:var(--warn)"></span>verified_owners: upsert + allocations</div>
+          <details style="margin-top:10px"><summary>RPC/Allocations</summary><div class="inner"><pre class="mono">{"allocated_phone_number":"+358...","email_alias_33mail":"...@33mailbox.com"}</pre></div></details>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // ========== Helpers ==========
+    function normName(s){
+      return (s||'')
+        .replace(/\u00a0/g,' ')
+        .replace(/\s+/g,' ')
+        .replace(/["'„”“]/g,'')
+        .replace(/\./g,'')
+        .replace(/[^\p{L}\p{N} ]/gu,'')
+        .trim().toLowerCase();
+    }
+    function html(strings,...vals){ return strings.map((s,i)=>s+(vals[i]??'')); }
+    function pretty(x){ try{return JSON.stringify(x, null, 2)}catch{ return String(x) } }
+    const API_TRACE = [];
+    function logApi(step, url, response, status){ API_TRACE.push({ t:new Date().toISOString(), step, url, status, response }); document.getElementById('apiTrace').textContent = pretty(API_TRACE); }
+    function showError(msg){ const b=document.getElementById('errorBanner'); if(!msg){b.style.display='none'; b.textContent='';} else {b.style.display='block'; b.textContent=msg;} }
+
+    function formatAddress(seat){
+      if(!seat) return null; const p=[]; if(seat.country) p.push(seat.country); if(seat.region) p.push(seat.region); if(seat.district) p.push(seat.district); if(seat.municipality) p.push(seat.municipality); if(seat.settlement) p.push(seat.settlement); if(seat.postCode) p.push(seat.postCode); return p.length?p.join(', '):null;
+    }
+
+    // Extract companies from relationships (CompanyBook spec)
+    function extractCompaniesFromRelationships(relData){
+      const companies=[]; const relationships = relData?.relationships || [];
+      for(const rel of relationships){
+        const entity = rel.entity || {}; const rtype = rel.relationshipType || rel.type || ''; const isActive = rel.isActive !== false; if(!isActive) continue; if(entity.type !== 'company') continue;
+        const shareStr = rel?.metadata?.share || rel?.metadata?.percentage || null;
+        const shareNum = typeof shareStr === 'string' ? parseFloat(String(shareStr).replace('%','')) : (typeof shareStr === 'number' ? shareStr : NaN);
+        const isSole = rtype === 'SoleCapitalOwner' || (!isNaN(shareNum) && Math.round(shareNum) === 100);
+        const isET = rtype === 'PhysicalPersonTrader';
+        if (isSole || isET){
+          const category = isET? 'ET' : (rtype === 'SoleCapitalOwner' ? 'SoleCapitalOwner' : 'Partners100');
+          companies.push({ eik: entity.id || entity.uic || null, name_bg: entity.name || null, category });
+        }
+      }
+      return companies;
+    }
+
+    // ========== Live search handler ==========
+    const els = {
+      liveName: document.getElementById('liveName'),
+      liveLimit: document.getElementById('liveLimit'),
+      liveSearch: document.getElementById('liveSearch'),
+      liveResults: document.getElementById('liveResults'),
+      apiTrace: document.getElementById('apiTrace'),
+      strict: document.getElementById('strict'),
+      showSimilar: document.getElementById('showSimilar'),
+      showEmpty: document.getElementById('showEmpty'),
+      autoEnrich100: document.getElementById('autoEnrich100'),
+      enrichPerson: document.getElementById('enrichPerson'),
+      enrichCompanies: document.getElementById('enrichCompanies'),
+      eligibleBlock: document.getElementById('eligibleBlock'),
+      eligibleDetails: document.getElementById('eligibleDetails'),
+      downloadEligible: document.getElementById('downloadEligible'),
+      supabaseUrl: document.getElementById('supabaseUrl'),
+      adminKey: document.getElementById('adminKey'),
+      anonKey: document.getElementById('anonKey'),
+      pushToSupabase: document.getElementById('pushToSupabase'),
+    };
+
+    async function fetchJson(url){
+      const resp = await fetch(url);
+      let data=null; try{ data = await resp.json(); }catch{ data = { error: 'invalid_json' } }
+      const step = url.includes('/relationships/') ? 'relationships/ownership' : (url.includes('/person/')?'person/details':(url.includes('/company/')?'company/details':'people/search'));
+      logApi(step, url, data, resp.status);
+      if(!resp.ok || (typeof data.status==='number' && data.status!==200)){
+        const msg = data?.error ? `${data.error}` : `HTTP ${resp.status}`;
+        showError(`CompanyBook proxy error: ${msg} (${url})`);
+      }
+      return { resp, data };
+    }
+
+    function simplifiedCompany(details){
+      const obj = details?.company || details || {};
+      const seat = obj.seat ? formatAddress(obj.seat) : null;
+      return {
+        eik: obj.uic || obj.eik || null,
+        name_bg: obj.companyName?.name || obj.name || null,
+        name_en: obj.companyNameTransliteration?.name || null,
+        legalForm: obj.legalForm || null,
+        status: obj.status || null,
+        seat,
+        // include seat components for slim push
+        city_en: obj.seat?.settlement || null,
+        region_en: obj.seat?.region || null,
+        country_en: obj.seat?.country || null,
+        registerInfo: obj.registerInfo || null,
+        managers: obj.managers || null,
+        representatives: obj.representatives || null,
+        capital: obj.capital || null,
+        nkids: obj.nkids || null,
+        lastUpdated: obj.lastUpdated || null,
+      };
+    }
+
+    els.downloadEligible.addEventListener('click', ()=>{
+      try{
+        const blob = new Blob([els.eligibleDetails.textContent||'[]'], {type:'application/json'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href=url; a.download='eligible_companies_with_data.json'; a.click(); URL.revokeObjectURL(url);
+      }catch(e){ alert('Неуспешен export: '+(e?.message||e)); }
+    });
+
+    function detectEntityType(legalForm){
+      const lf = String(legalForm||'').toLowerCase();
+      if(lf.includes('еоод') || lf.includes('eood')) return 'EOOD';
+      if(lf.includes('ет') || lf.includes('et')) return 'ET';
+      return null;
+    }
+
+    function isActiveStatus(status){
+      const s = String(status||'').toUpperCase();
+      return s === 'N' || s === 'E';
+    }
+
+    function toSlim(c){
+      if(!c) return null;
+      const entity_type = detectEntityType(c.legalForm);
+      const isActive = isActiveStatus(c.status);
+      const englishName = c.name_en || null;
+      if(!entity_type || !isActive || !englishName || !c.eik) return null;
+      return {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        business_name_en: englishName,
+        eik: c.eik,
+        vat: c.registerInfo?.vat || (c.eik ? `BG${c.eik}` : null),
+        entity_type,
+        city_en: c.city_en || null,
+        region_en: c.region_en || null,
+        country_en: c.country_en || null,
+      };
+    }
+
+    els.pushToSupabase.addEventListener('click', async ()=>{
+      try{
+        const base = (els.supabaseUrl.value||'').trim();
+        const adminKey = (els.adminKey.value||'').trim();
+        const anonKey = (els.anonKey.value||'').trim();
+        const fullName = (els.liveName.value||'').trim();
+        if(!base || !adminKey || !fullName){ alert('Попълни: Base URL, ADMIN key и име.'); return; }
+        let arr = [];
+        try { arr = JSON.parse(els.eligibleDetails.textContent||'[]') } catch { arr = [] }
+        const slim = arr.map(toSlim).filter(Boolean);
+        if(!slim.length){ alert('Няма годни записи за изпращане (EOOD/ET, активни, с английско име).'); return; }
+        const url = `${base.replace(/\/$/, '')}/owners_push_slim`;
+        const headers = { 'Content-Type':'application/json', 'x-admin-key': adminKey };
+        if(anonKey) headers['Authorization'] = `Bearer ${anonKey}`;
+        const body = JSON.stringify({ full_name: fullName, companies: slim });
+        const resp = await fetch(url, { method:'POST', headers, body });
+        const data = await resp.json().catch(()=>({}));
+        logApi('push/owners_push_slim', url, data, resp.status);
+        if(!resp.ok){ alert('Push неуспешен: '+(data?.error||resp.status)); return; }
+        alert(`OK: записани фирми = ${data?.count ?? slim.length}`);
+      }catch(e){ alert('Грешка при push: '+(e?.message||e)); }
+    });
+
+    els.liveSearch.addEventListener('click', async ()=>{
+      showError(''); els.eligibleBlock.style.display='none'; els.eligibleDetails.textContent='[]';
+      const inputName = (els.liveName.value||'').trim();
+      const strict = els.strict.checked;
+      const showSimilar = els.showSimilar.checked;
+      const showEmpty = els.showEmpty.checked;
+      const autoEnrich100 = els.autoEnrich100.checked;
+      const limit = parseInt(els.liveLimit.value||'5',10)||5;
+      els.liveResults.innerHTML = '<div class="muted">Търсене...</div>';
+      if(inputName.length < 3){ els.liveResults.innerHTML = '<div class="err">Името трябва да е поне 3 символа.</div>'; return; }
+
+      try{
+        const searchUrl = `http://localhost:4321/person-search?name=${encodeURIComponent(inputName)}&limit=${limit}`;
+        const { data: sData } = await fetchJson(searchUrl);
+        const allPeople = Array.isArray(sData?.results) ? sData.results : [];
+        const target = normName(inputName);
+        const exactPeople = allPeople.filter(p => normName(p.name) === target);
+        const people = strict ? exactPeople : (exactPeople.length? exactPeople : allPeople);
+
+        if(people.length===0){ els.liveResults.innerHTML = '<div class="warn-text">Няма точни съвпадения по три имена.</div>'; return; }
+
+        const sections = []; const eligibleMap = {};
+        for(const person of people){
+          const pid = person.indent || person.identifier || person.id;
+          const relUrl = `http://localhost:4321/relationships/${pid}?type=ownership&depth=2&include_historical=false`;
+          const { data: rel } = await fetchJson(relUrl);
+          const comps = extractCompaniesFromRelationships(rel);
+
+          if(!showEmpty && comps.length===0) { continue; }
+
+          // Първо обогатяваме (за да знаем статус Active/Inactive)
+          if(autoEnrich100 || els.enrichCompanies.checked){
+            for(const c of comps){
+              const isEligible = (c.category==='SoleCapitalOwner') || (c.category==='ET') || (c.category==='Partners100');
+              if(!isEligible || !c.eik) continue;
+              if(eligibleMap[c.eik]) continue;
+              try{
+                const url = `http://localhost:4321/company/${c.eik}?with_data=true`;
+                const { data: cd } = await fetchJson(url);
+                eligibleMap[c.eik] = simplifiedCompany(cd);
+              }catch(e){ showError(`Грешка при извличане на компания ${c.eik}: ${e?.message||e}`); }
+            }
+          }
+
+          // Броим само активните фирми (status N/E) след Enrich
+          const activeComps = comps.filter(c=>{
+            const det = eligibleMap[c.eik];
+            return det && isActiveStatus(det.status);
+          });
+          const counts = {
+            sole: activeComps.filter(c=>c.category==='SoleCapitalOwner').length,
+            et: activeComps.filter(c=>c.category==='ET').length,
+            partners100: activeComps.filter(c=>c.category==='Partners100').length,
+          };
+          const combined = counts.sole + counts.et + counts.partners100;
+
+          // Optional person enrichment
+          let personFull = null;
+          if(els.enrichPerson.checked){
+            try { const u = `http://localhost:4321/person/${pid}?with_data=true`; const pr = await fetch(u); const pj = await pr.json(); logApi('person/details', u, pj, pr.status); personFull = pj; } catch {}
+          }
+
+          sections.push(html`
+            <div class="card">
+              <h3 style="border-bottom:none">Кандидат: ${person.name || '(без име)'} <span class="badge">ID: ${pid}</span></h3>
+              <div class="content">
+                <div class="row">
+                  <div class="pill">Общо фирми: <strong>${comps.length}</strong></div>
+                  <div class="pill">100% owned (активни EOOD+ET+Partners100): <strong>${combined}</strong></div>
+                  <div class="pill">SoleCapitalOwner: <strong>${counts.sole}</strong></div>
+                  <div class="pill">ЕТ: <strong>${counts.et}</strong></div>
+                  <div class="pill">Партньор 100%: <strong>${counts.partners100}</strong></div>
+                </div>
+                <div class="br"></div>
+                ${comps.length ? html`
+                <table>
+                  <thead><tr><th>#</th><th>EIK</th><th>Име</th><th>Категория</th><th>Статус</th></tr></thead>
+                  <tbody>
+                    ${comps.map((c,i)=> html`<tr>
+                      <td>${i+1}</td>
+                      <td class="mono">${c.eik||''}</td>
+                      <td>${c.name_bg||''}</td>
+                      <td><span class="badge">${c.category}</span></td>
+                      <td><span class="badge" style="color:${eligibleMap[c.eik] && isActiveStatus(eligibleMap[c.eik].status) ? 'var(--ok)' : 'var(--err)'}">${eligibleMap[c.eik] ? (isActiveStatus(eligibleMap[c.eik].status) ? 'Активна' : 'Неактивна') : '—'}</span></td>
+                    </tr>`).join('')}
+                  </tbody>
+                </table>
+                ` : '<div class="muted">Няма извлечени компании за този кандидат.</div>'}
+                <details style="margin-top:10px"><summary>Person (raw от /people/search)</summary><div class="inner"><pre class="mono">${pretty(person)}</pre></div></details>
+                <details style="margin-top:6px"><summary>Relationships (raw от /relationships)</summary><div class="inner"><pre class="mono">${pretty(rel)}</pre></div></details>
+                ${personFull ? html`<details style="margin-top:6px"><summary>Person (with_data)</summary><div class="inner"><pre class="mono">${pretty(personFull)}</pre></div></details>` : ''}
+              </div>
+            </div>
+          `);
+        }
+
+        els.liveResults.innerHTML = sections.length? sections.join('') : '<div class="warn-text">Няма кандидати с реални фирми според условията.</div>';
+
+        // Render eligible enriched companies block
+        const eligibleArr = Object.values(eligibleMap);
+        if(eligibleArr.length){ els.eligibleBlock.style.display='block'; els.eligibleDetails.textContent = pretty(eligibleArr); }
+
+        if(strict && showSimilar && sections.length===0 && allPeople.length){ els.strict.checked = false; els.liveSearch.click(); }
+      }catch(e){
+        showError(`Грешка при заявка: ${e?.message||e}`);
+        els.liveResults.innerHTML = `<div class="err">Грешка при търсене: ${e?.message||e}</div>`;
+      }
+    });
+  </script>
+</body>
+</html>

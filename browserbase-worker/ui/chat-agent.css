@@ -1,0 +1,165 @@
+/* Chat Agent Widget - compact, unobtrusive contact drawer with fallback timer */
+:root {
+  --ca-bg: #ffffff;
+  --ca-border: #e6e6e6;
+  --ca-shadow: 0 10px 30px rgba(0,0,0,0.12);
+  --ca-primary: #356be8;
+  --ca-muted: #667085;
+  --ca-success: #2e7d32;
+  --ca-danger: #d32f2f;
+}
+
+.ca-widget {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  width: 320px;
+  max-width: calc(100vw - 24px);
+  background: var(--ca-bg);
+  border: 1px solid var(--ca-border);
+  border-radius: 12px;
+  box-shadow: var(--ca-shadow);
+  overflow: hidden;
+  font: 14px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  color: #1f2937;
+  z-index: 9999;
+}
+
+.ca-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--ca-border);
+  background: #fafafa;
+}
+
+.ca-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #e3e8ff;
+  color: #2d3a8c;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  flex: 0 0 36px;
+  overflow: hidden;
+}
+.ca-avatar img { width: 100%; height: 100%; object-fit: cover; display: none; }
+
+.ca-title {
+  display: flex;
+  flex-direction: column;
+}
+.ca-name { font-weight: 600; font-size: 14px; color: #111827; }
+.ca-role { font-size: 12px; color: var(--ca-muted); }
+
+.ca-close {
+  margin-left: auto;
+  border: none;
+  background: transparent;
+  color: var(--ca-muted);
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+}
+.ca-close:hover { color: #0f172a; }
+
+.ca-body {
+  max-height: 320px;
+  overflow: auto;
+  padding: 12px;
+  background: #fff;
+}
+
+.ca-msg {
+  display: flex;
+  gap: 8px;
+  margin: 8px 0;
+}
+.ca-msg-agent .ca-bubble { background: #f3f4f6; color: #111827; border: 1px solid #e5e7eb; }
+.ca-msg-user .ca-bubble { background: #e8f0fe; color: #0f172a; border: 1px solid #dbe4ff; margin-left: auto; }
+
+.ca-bubble {
+  padding: 8px 10px;
+  border-radius: 10px;
+  max-width: 85%;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+
+.ca-footer {
+  border-top: 1px solid var(--ca-border);
+  background: #fafafa;
+  padding: 8px;
+  display: flex;
+  gap: 6px;
+}
+.ca-input {
+  flex: 1;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 14px;
+}
+.ca-send {
+  background: var(--ca-primary);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+/* Subtle contact drawer */
+.ca-contact { 
+  position: absolute; 
+  right: 10px; 
+  bottom: 64px; 
+  width: 260px; 
+  background: #ffffff; 
+  border: 1px solid var(--ca-border); 
+  border-radius: 10px; 
+  box-shadow: var(--ca-shadow); 
+  padding: 10px; 
+  display: none; 
+}
+.ca-contact.show { display: block; }
+.ca-contact h4 { margin: 0 0 6px; font-size: 13px; color: #111827; }
+.ca-contact .ca-row { display: flex; align-items: center; gap: 8px; margin: 6px 0; font-size: 13px; color: #111827; }
+.ca-contact .ca-ico { width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; color: var(--ca-primary); }
+.ca-contact .ca-note { font-size: 12px; color: var(--ca-muted); margin-top: 6px; }
+
+/* Tiny bell indicator to avoid drawing too much attention */
+.ca-bell {
+  position: absolute;
+  right: 14px;
+  bottom: 64px;
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 1px solid var(--ca-border);
+  box-shadow: var(--ca-shadow);
+  display: none;
+  align-items: center; justify-content: center;
+  color: var(--ca-primary);
+  cursor: pointer;
+}
+.ca-bell.show { display: inline-flex; }
+
+/* Minimal confirm on close */
+.ca-confirm {
+  position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.3);
+  z-index: 10000;
+}
+.ca-confirm .panel {
+  width: 360px; max-width: 90vw; background: #fff; border-radius: 12px; border: 1px solid var(--ca-border); box-shadow: var(--ca-shadow);
+  padding: 14px;
+}
+.ca-confirm h3 { margin: 0 0 8px; font-size: 16px; }
+.ca-confirm p { margin: 6px 0; font-size: 14px; color: #111827; }
+.ca-confirm .hint { font-size: 12px; color: var(--ca-muted); }
+.ca-confirm .actions { display:flex; gap:8px; justify-content: flex-end; margin-top: 10px; }
+.ca-btn { border: 1px solid var(--ca-border); background: #fff; padding: 8px 12px; border-radius: 8px; cursor: pointer; }
+.ca-btn.primary { background: var(--ca-primary); color: #fff; border-color: var(--ca-primary); }

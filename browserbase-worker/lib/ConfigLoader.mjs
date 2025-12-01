@@ -23,8 +23,10 @@ export class ConfigLoader {
       timeoutMs: Number(this.get("WORKER_TIMEOUT", 30000)),
       retryAttempts: Number(this.get("WORKER_RETRY_ATTEMPTS", 2)),
       retryDelayMs: Number(this.get("WORKER_RETRY_DELAY", 1500)),
+      duoplusApiKey: this.get("DUOPLUS_API_KEY"),
     };
   }
+
 
   validate() {
     const errors = [];
@@ -47,6 +49,7 @@ export class ConfigLoader {
     const info = [
       `BROWSERBASE_PROJECT_ID: ${this.get("BROWSERBASE_PROJECT_ID") ? "set" : "missing"}`,
       `BROWSERBASE_API_KEY: ${this.get("BROWSERBASE_API_KEY") ? "set" : "missing"}`,
+      `DUOPLUS_API_KEY: ${this.get("DUOPLUS_API_KEY") ? "set" : "missing"}`,
       `OPENAI_API_KEY: ${this.get("OPENAI_API_KEY") ? "set" : "not set"}`,
     ];
 
