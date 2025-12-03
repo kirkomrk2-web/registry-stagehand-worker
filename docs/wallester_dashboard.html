@@ -1,0 +1,527 @@
+<!doctype html>
+<html lang="bg">
+<head>
+  <meta charset="utf-8" />
+  <title>Wallester Automation Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root{
+      --bg:#0a0e1a; --panel:#121827; --muted:#94a3b8; --text:#f1f5f9; 
+      --accent:#10b981; --accent2:#6366f1; --ok:#22c55e; --warn:#f59e0b; 
+      --err:#ef4444; --border:#1e293b;
+    }
+    *{box-sizing:border-box; margin:0; padding:0}
+    body{
+      font-family:'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background:var(--bg); color:var(--text); line-height:1.6;
+    }
+    .container{max-width:1400px; margin:0 auto; padding:20px}
+    
+    header{
+      background:linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+      padding:24px; border-radius:16px; margin-bottom:24px;
+      border:1px solid var(--border);
+    }
+    header h1{font-size:28px; font-weight:700; margin-bottom:8px}
+    header p{color:var(--muted); font-size:14px}
+    
+    .panel{
+      background:var(--panel); padding:24px; border-radius:12px;
+      border:1px solid var(--border); margin-bottom:24px;
+    }
+    
+    .tabs{
+      display:flex; gap:8px; margin-bottom:20px; border-bottom:1px solid var(--border);
+    }
+    .tab{
+      padding:12px 24px; cursor:pointer; border:none; background:none;
+      color:var(--muted); font-weight:600; font-size:14px;
+      border-bottom:2px solid transparent; transition:all 0.2s;
+    }
+    .tab:hover{color:var(--text)}
+    .tab.active{color:var(--accent); border-bottom-color:var(--accent)}
+    
+    .tab-content{display:none}
+    .tab-content.active{display:block}
+    
+    button{
+      background:linear-gradient(135deg, var(--accent) 0%, #059669 100%);
+      border:none; border-radius:8px; padding:12px 24px; color:white;
+      font-weight:600; cursor:pointer; transition:all 0.2s;
+    }
+    button:hover{transform:translateY(-2px); box-shadow:0 4px 12px rgba(16,185,129,0.4)}
+    button:disabled{opacity:0.5; cursor:not-allowed; transform:none}
+    button.secondary{
+      background:linear-gradient(135deg, var(--accent2) 0%, #4f46e5 100%);
+    }
+    button.danger{
+      background:linear-gradient(135deg, var(--err) 0%, #dc2626 100%);
+    }
+    
+    input, select, textarea{
+      width:100%; background:#0f172a; border:1px solid var(--border);
+      border-radius:8px; padding:12px 16px; color:var(--text);
+      font-size:14px; transition:all 0.2s; margin-bottom:12px;
+    }
+    input:focus, select:focus, textarea:focus{
+      outline:none; border-color:var(--accent); box-shadow:0 0 0 3px rgba(16,185,129,0.1);
+    }
+    
+    label{
+      display:block; color:var(--muted); font-size:13px; margin-bottom:6px;
+      font-weight:500;
+    }
+    
+    .badge{
+      display:inline-block; padding:4px 10px; border-radius:6px;
+      font-size:11px; font-weight:600; text-transform:uppercase;
+      letter-spacing:0.5px;
+    }
+    .badge.ok{background:rgba(34,197,94,0.2); color:var(--ok); border:1px solid var(--ok)}
+    .badge.warn{background:rgba(245,158,11,0.2); color:var(--warn); border:1px solid var(--warn)}
+    .badge.err{background:rgba(239,68,68,0.2); color:var(--err); border:1px solid var(--err)}
+    .badge.info{background:rgba(99,102,241,0.2); color:var(--accent2); border:1px solid var(--accent2)}
+    
+    .card{
+      background:var(--panel); border:1px solid var(--border);
+      border-radius:10px; padding:16px; margin-bottom:12px;
+    }
+    
+    .progress-bar{
+      width:100%; height:8px; background:#1a1f2e; border-radius:4px;
+      overflow:hidden; margin:12px 0;
+    }
+    .progress-fill{
+      height:100%; background:linear-gradient(90deg, var(--accent), var(--accent2));
+      transition:width 0.3s; border-radius:4px;
+    }
+    
+    .log{
+      background:#0d1117; border:1px solid var(--border);
+      border-radius:8px; padding:12px; max-height:300px;
+      overflow-y:auto; font-family:monospace; font-size:12px;
+      margin-top:12px;
+    }
+    .log-line{padding:4px 0; border-bottom:1px solid #1a1f2e}
+    .log-line:last-child{border-bottom:none}
+    .log-info{color:#6cc3ff}
+    .log-success{color:var(--ok)}
+    .log-error{color:var(--err)}
+    .log-warn{color:var(--warn)}
+    
+    .grid{display:grid; gap:16px}
+    .cols-2{grid-template-columns:repeat(2, 1fr)}
+    
+    .stat-grid{
+      display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));
+      gap:16px; margin-bottom:24px;
+    }
+    .stat-card{
+      background:var(--panel); padding:20px; border-radius:12px;
+      border:1px solid var(--border); text-align:center;
+    }
+    .stat-value{font-size:32px; font-weight:700; margin-bottom:4px}
+    .stat-label{color:var(--muted); font-size:13px; text-transform:uppercase; letter-spacing:0.5px}
+    
+    .hint{
+      background:rgba(99,102,241,0.1); border:1px solid var(--accent2);
+      border-radius:8px; padding:12px; margin-bottom:16px; color:#b4c6fc;
+      font-size:13px;
+    }
+    
+    .owner-select{
+      padding:16px; margin-bottom:12px; border-radius:8px;
+      background:var(--panel); border:1px solid var(--border);
+      cursor:pointer; transition:all 0.2s;
+    }
+    .owner-select:hover{border-color:var(--accent); background:#1a2332}
+    .owner-select.selected{border-color:var(--accent); background:rgba(16,185,129,0.1)}
+    
+    .action-buttons{
+      display:flex; gap:12px; margin-top:16px;
+    }
+    .action-buttons button{flex:1}
+    
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .loading{
+      display:inline-block; width:16px; height:16px;
+      border:2px solid var(--border); border-top-color:var(--accent);
+      border-radius:50%; animation:spin 0.8s linear infinite;
+      margin-left:8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🏦 Wallester Automation Dashboard</h1>
+      <p>Автоматично създаване на акаунти и карти с Wallester API</p>
+    </header>
+
+    <!-- Tabs -->
+    <div class="panel">
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab('accounts')">👤 Създаване на акаунти</button>
+        <button class="tab" onclick="switchTab('cards')">💳 Създаване на карти</button>
+        <button class="tab" onclick="switchTab('status')">📊 Статус и мониторинг</button>
+        <button class="tab" onclick="switchTab('config')">⚙️ Конфигурация</button>
+      </div>
+
+      <!-- Tab: Accounts Creation -->
+      <div id="tab-accounts" class="tab-content active">
+        <h3 style="margin-bottom:16px">Избери Verified Owner за регистрация</h3>
+        
+        <div class="hint">
+          🔍 Показани са само owners с 100% компании (EOOD/ET) и английски имена
+        </div>
+
+        <div style="display:flex; gap:12px; margin-bottom:16px">
+          <input type="text" id="searchOwners" placeholder="Търси по име или EIK..." style="margin:0" />
+          <button class="secondary" onclick="loadOwners()">🔄 Обнови</button>
+        </div>
+
+        <div id="ownersList" style="max-height:400px; overflow-y:auto">
+          <div style="text-align:center; padding:40px; color:var(--muted)">
+            Зареждане на owners...
+          </div>
+        </div>
+
+        <div class="action-buttons">
+          <button onclick="startAccountCreation()" id="btnCreateAccount" disabled>
+            <span id="btnCreateAccountText">✨ Създай Wallester акаунт</span>
+            <span id="btnCreateAccountLoading" class="loading" style="display:none"></span>
+          </button>
+          <button class="secondary" onclick="testSMSRetrieval()">📱 Тест SMS получаване</button>
+        </div>
+
+        <div id="accountProgress" style="display:none; margin-top:24px">
+          <div class="card">
+            <h4>🔄 Прогрес на регистрация</h4>
+            <div class="progress-bar">
+              <div class="progress-fill" id="accountProgressBar" style="width:0%"></div>
+            </div>
+            <div id="accountStatus" style="margin-top:12px; color:var(--muted)">Стартиране...</div>
+            <div class="log" id="accountLog"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Cards Creation -->
+      <div id="tab-cards" class="tab-content">
+        <h3 style="margin-bottom:16px">Създаване на виртуални карти</h3>
+        
+        <div class="hint">
+          💳 Избери съществуващ Wallester акаунт и създай карта
+        </div>
+
+        <div id="accountsForCards" style="margin-bottom:16px">
+          <select id="selectAccount" style="margin:0">
+            <option value="">-- Избери Wallester акаунт --</option>
+          </select>
+        </div>
+
+        <div class="grid cols-2" style="margin-bottom:16px">
+          <div>
+            <label>Тип карта</label>
+            <select id="cardType">
+              <option value="virtual">Virtual Card (препоръчително)</option>
+              <option value="physical">Physical Card</option>
+            </select>
+          </div>
+          <div>
+            <label>Лимит (EUR)</label>
+            <input type="number" id="cardLimit" value="500" min="100" max="5000" />
+          </div>
+        </div>
+
+        <div style="margin-bottom:16px">
+          <label>Име на картата (опционално)</label>
+          <input type="text" id="cardName" placeholder="Business Expenses" />
+        </div>
+
+        <div class="action-buttons">
+          <button onclick="startCardCreation()">
+            <span id="btnCreateCardText">💳 Създай карта</span>
+            <span id="btnCreateCardLoading" class="loading" style="display:none"></span>
+          </button>
+        </div>
+
+        <div id="cardProgress" style="display:none; margin-top:24px">
+          <div class="card">
+            <h4>🔄 Прогрес на създаване</h4>
+            <div class="progress-bar">
+              <div class="progress-fill" id="cardProgressBar" style="width:0%"></div>
+            </div>
+            <div id="cardStatus" style="margin-top:12px; color:var(--muted)">Стартиране...</div>
+            <div class="log" id="cardLog"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Status & Monitoring -->
+      <div id="tab-status" class="tab-content">
+        <h3 style="margin-bottom:16px">Статус на автоматизацията</h3>
+
+        <div class="stat-grid">
+          <div class="stat-card">
+            <div class="stat-value" id="statAccounts">--</div>
+            <div class="stat-label">Създадени акаунти</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="statCards">--</div>
+            <div class="stat-label">Създадени карти</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="statPending">--</div>
+            <div class="stat-label">В процес</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="statFailed">--</div>
+            <div class="stat-label">Неуспешни</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h4>📋 Последни активности</h4>
+          <div class="log" id="activityLog" style="max-height:400px">
+            <div class="log-line log-info">[INFO] Dashboard initialized</div>
+          </div>
+        </div>
+
+        <button class="secondary" onclick="refreshStatus()" style="margin-top:16px">🔄 Обнови статус</button>
+      </div>
+
+      <!-- Tab: Configuration -->
+      <div id="tab-config" class="tab-content">
+        <h3 style="margin-bottom:16px">Конфигурация</h3>
+
+        <div class="card">
+          <h4>🔗 API Endpoints</h4>
+          <label>Supabase URL</label>
+          <input type="text" id="cfgSupabaseUrl" placeholder="https://your-project.supabase.co" />
+          
+          <label>Supabase Anon Key</label>
+          <input type="password" id="cfgAnonKey" placeholder="eyJhbGciOiJIUzI1NiIs..." />
+          
+          <label>Wallester Automation API</label>
+          <input type="text" id="cfgWallesterApi" value="http://localhost:4323" />
+        </div>
+
+        <div class="card">
+          <h4>⚙️ Automation Settings</h4>
+          <label>
+            <input type="checkbox" id="cfgAutoRetry" checked /> Auto-retry при грешка
+          </label>
+          <label>
+            <input type="checkbox" id="cfgSMSWait" checked /> Изчакване за SMS код (60s timeout)
+          </label>
+          <label>
+            <input type="checkbox" id="cfgEmailWait" checked /> Изчакване за Email код (60s timeout)
+          </label>
+        </div>
+
+        <div class="card">
+          <h4>🔐 Proxy Settings</h4>
+          <label>Use Proxy Rotation</label>
+          <select id="cfgProxyMode">
+            <option value="auto">Автоматична ротация (препоръчително)</option>
+            <option value="fixed">Фиксирано прокси</option>
+            <option value="none">Без прокси</option>
+          </select>
+          
+          <div class="hint">
+            🔄 Proxy Rotation сървър: http://localhost:4322
+          </div>
+        </div>
+
+        <button onclick="saveConfig()">💾 Запази конфигурация</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Global state
+    let selectedOwner = null;
+    let config = {
+      supabaseUrl: localStorage.getItem('cfg_supabaseUrl') || '',
+      anonKey: localStorage.getItem('cfg_anonKey') || '',
+      wallesterApi: 'http://localhost:4323',
+      autoRetry: true,
+      smsWait: true,
+      emailWait: true,
+      proxyMode: 'auto'
+    };
+
+    // Tab switching
+    function switchTab(tabName) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+      
+      event.target.classList.add('active');
+      document.getElementById(`tab-${tabName}`).classList.add('active');
+    }
+
+    // Load verified owners from Supabase
+    async function loadOwners() {
+      const list = document.getElementById('ownersList');
+      list.innerHTML = '<div style="text-align:center; padding:40px; color:var(--muted)">Зареждане...</div>';
+
+      try {
+        if (!config.supabaseUrl || !config.anonKey) {
+          list.innerHTML = '<div class="hint" style="color:var(--err)">⚠️ Моля, конфигурирай Supabase credentials в Configuration таба</div>';
+          return;
+        }
+
+        // Clean URL - remove trailing slash and whitespace
+        const cleanUrl = config.supabaseUrl.trim().replace(/\/$/, '');
+        const cleanKey = config.anonKey.trim();
+
+        const response = await fetch(`${cleanUrl}/rest/v1/verified_owners?select=*&status=eq.pending&limit=50`, {
+          headers: {
+            'apikey': cleanKey,
+            'Authorization': `Bearer ${cleanKey}`
+          }
+        });
+
+        if (!response.ok) throw new Error('Failed to fetch owners');
+        
+        const owners = await response.json();
+        
+        if (owners.length === 0) {
+          list.innerHTML = '<div class="hint">Няма налични verified owners</div>';
+          return;
+        }
+
+        list.innerHTML = owners.map(owner => `
+          <div class="owner-select" onclick="selectOwner('${owner.id}')">
+            <div style="display:flex; justify-content:space-between; align-items:center">
+              <div>
+                <strong>${owner.full_name}</strong>
+                <div style="font-size:12px; color:var(--muted); margin-top:4px">
+                  📧 ${owner.email_alias_33mail || 'N/A'} · 
+                  📱 ${owner.allocated_phone_number || 'N/A'}
+                </div>
+              </div>
+              <div>
+                <span class="badge info">${owner.companies?.length || 0} companies</span>
+              </div>
+            </div>
+            ${owner.top_company ? `
+              <div style="margin-top:8px; padding-top:8px; border-top:1px solid var(--border); font-size:12px">
+                🏢 <strong>${owner.top_company.business_name_en}</strong> · 
+                EIK: ${owner.top_company.eik} ·
+                ${owner.top_company.entity_type}
+              </div>
+            ` : ''}
+          </div>
+        `).join('');
+
+      } catch (error) {
+        list.innerHTML = `<div class="hint" style="color:var(--err)">❌ Грешка: ${error.message}</div>`;
+      }
+    }
+
+    // Select owner for account creation
+    function selectOwner(ownerId) {
+      document.querySelectorAll('.owner-select').forEach(el => el.classList.remove('selected'));
+      event.currentTarget.classList.add('selected');
+      selectedOwner = ownerId;
+      document.getElementById('btnCreateAccount').disabled = false;
+    }
+
+    // Start account creation
+    async function startAccountCreation() {
+      if (!selectedOwner) {
+        alert('Моля, избери owner');
+        return;
+      }
+
+      const btn = document.getElementById('btnCreateAccount');
+      const btnText = document.getElementById('btnCreateAccountText');
+      const btnLoading = document.getElementById('btnCreateAccountLoading');
+      const progress = document.getElementById('accountProgress');
+      const log = document.getElementById('accountLog');
+
+      btn.disabled = true;
+      btnText.style.display = 'none';
+      btnLoading.style.display = 'inline-block';
+      progress.style.display = 'block';
+      log.innerHTML = '';
+
+      try {
+        addLog('accountLog', 'info', 'Стартиране на Wallester регистрация...');
+        updateProgress('accountProgressBar', 10);
+
+        const response = await fetch(`${config.wallesterApi}/create-account`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ownerId: selectedOwner })
+        });
+
+        if (!response.ok) throw new Error('Account creation failed');
+
+        const result = await response.json();
+        addLog('accountLog', 'success', '✅ Wallester акаунт създаден успешно!');
+        updateProgress('accountProgressBar', 100);
+        
+        setTimeout(() => {
+          refreshStatus();
+          loadOwners();
+        }, 2000);
+
+      } catch (error) {
+        addLog('accountLog', 'error', `❌ Грешка: ${error.message}`);
+      } finally {
+        btn.disabled = false;
+        btnText.style.display = 'inline';
+        btnLoading.style.display = 'none';
+      }
+    }
+
+    // Helper functions
+    function addLog(logId, type, message) {
+      const log = document.getElementById(logId);
+      const time = new Date().toLocaleTimeString('bg-BG');
+      const line = document.createElement('div');
+      line.className = `log-line log-${type}`;
+      line.textContent = `[${time}] ${message}`;
+      log.appendChild(line);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function updateProgress(barId, percent) {
+      document.getElementById(barId).style.width = `${percent}%`;
+    }
+
+    async function refreshStatus() {
+      // Fetch stats from API
+      addLog('activityLog', 'info', 'Refreshing status...');
+    }
+
+    function saveConfig() {
+      config.supabaseUrl = document.getElementById('cfgSupabaseUrl').value;
+      config.anonKey = document.getElementById('cfgAnonKey').value;
+      config.wallesterApi = document.getElementById('cfgWallesterApi').value;
+      
+      localStorage.setItem('cfg_supabaseUrl', config.supabaseUrl);
+      localStorage.setItem('cfg_anonKey', config.anonKey);
+      
+      alert('✅ Конфигурация запазена!');
+    }
+
+    // Initialize
+    window.addEventListener('DOMContentLoaded', () => {
+      // Load saved config
+      if (config.supabaseUrl) document.getElementById('cfgSupabaseUrl').value = config.supabaseUrl;
+      if (config.anonKey) document.getElementById('cfgAnonKey').value = config.anonKey;
+      
+      // Auto-load owners if configured
+      if (config.supabaseUrl && config.anonKey) {
+        loadOwners();
+      }
+      
+      addLog('activityLog', 'success', '✅ Dashboard initialized');
+    });
+  </script>
+</body>
+</html>

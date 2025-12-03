@@ -92,12 +92,14 @@ function extractVerifiedBusinesses(ownershipData: any, personId: string) {
       const uic = entity.id || entity.uic || null; // API uses id=uic for companies
       const name = entity.name || null;
       const nameEn = entity.name_en || null; // CRITICAL: Capture English name from relationships entity
+      const category = isET ? 'ET' : (rtype === 'SoleCapitalOwner' ? 'SoleCapitalOwner' : 'Partners100');
       companies.push({
         eik: uic,
         business_name_bg: name,
         business_name_en: nameEn, // Store the English name from relationships
         legal_form: null,
         entity_type: isET ? 'ET' : 'EOOD', // will confirm via details
+        category: category, // Store category for better detection
         incorporation_date: null,
         address: null
       });
@@ -158,7 +160,7 @@ serve(async (req: Request) => {
       for (const c of comps) verifiedCompanies.push(c);
     }
 
-    // Enrich + dedupe by EIK with STRICT FILTERS
+    // Enrich + dedupe by EIK with RELAXED FILTERS
     const seen = new Set<string>();
     const enrichedCompanies: any[] = [];
     
@@ -172,61 +174,76 @@ serve(async (req: Request) => {
       const details = await getCompanyDetails(e);
       const comp = details?.company || details || null;
       
-      // CRITICAL FILTERS (matching registry_pipeline_visual.html requirements):
       if (!comp) {
         console.log(`[FILTER] Skipping ${e} - no company details found`);
+        // Still add basic info from relationships
+        enrichedCompanies.push({
+          ...company,
+          business_name_en: company.business_name_en || null,
+          status: 'UNKNOWN',
+          filter_reason: 'no_details'
+        });
         continue;
       }
       
-      // 1. Filter for ACTIVE status (N or E)
+      // Relaxed filters - collect ALL companies with metadata
       const status = String(comp.status || '').toUpperCase();
       const isActive = status === 'N' || status === 'E';
-      if (!isActive) {
-        console.log(`[FILTER] Skipping ${e} - not active (status: ${status})`);
-        continue;
-      }
       
-      // 2. Filter for ENGLISH NAME (REQUIRED - must exist in relationships)
-      // English name comes from relationships entity.name_en, NOT from companyNameTransliteration
-      const englishName = company.business_name_en || comp.companyNameTransliteration?.name || null;
-      if (!englishName) {
-        console.log(`[FILTER] Skipping ${e} - no English name (checked relationships and transliteration)`);
-        continue;
-      }
+      // Try multiple sources for English name
+      const englishName = company.business_name_en || 
+                         comp.companyNameTransliteration?.name || 
+                         comp.name_en ||
+                         null;
       
-      // 3. Filter for TYPE (EOOD or ET only)
+      // Detect entity type with improved matching using category
       const legalForm = String(comp.legalForm || '').toLowerCase();
-      // EOOD can be: "ЕООД", "еоод", "EOOD", or full "Еднолично дружество с ограничена отговорност"
-      const isEOOD = legalForm.includes('еоод') || 
-                     legalForm.includes('eood') || 
-                     legalForm.includes('еднолично дружество');
-      // ET can be: "ЕТ", "ET", or full "Едноличен търговец"
-      const isET = legalForm.includes('едноличен търговец') || 
-                   (legalForm.includes('ет') && !legalForm.includes('дружество')) ||
-                   (legalForm.includes('et') && !legalForm.includes('limited'));
+      const category = company.category || '';
       
+      // Check category first (most reliable)
+      let isEOOD = category === 'SoleCapitalOwner';
+      let isET = category === 'ET';
+      
+      // Then check legal form
       if (!isEOOD && !isET) {
-        console.log(`[FILTER] Skipping ${e} - not EOOD/ET (legalForm: ${comp.legalForm})`);
-        continue;
+        isEOOD = legalForm.includes('еоод') || 
+                 legalForm.includes('eood') || 
+                 legalForm.includes('еднолично дружество') ||
+                 legalForm.includes('limited liability');
+        isET = legalForm.includes('едноличен търговец') || 
+               legalForm.includes('sole trader') ||
+               /\bет\b/.test(legalForm) ||
+               /\bet\b/.test(legalForm);
       }
       
-      // Passed all filters!
-      console.log(`[FILTER] ✓ ${e} passed all filters (${englishName}, ${legalForm}, ${status})`);
+      // Determine if "eligible" for Wallester (but KEEP all companies)
+      const isEligible = isActive && (isEOOD || isET) && !!englishName;
+      
+      console.log(`[FILTER] ${e}: ${isEligible ? '✓ ELIGIBLE' : '⚠ NOT ELIGIBLE'} (${englishName || 'NO_EN_NAME'}, ${legalForm}, ${status})`);
       
       const merged = {
         ...company,
         business_name_bg: comp.name || company.business_name_bg,
         business_name_en: englishName,
         legal_form: comp.legalForm || company.legal_form || null,
-        entity_type: isEOOD ? 'EOOD' : 'ET',
+        entity_type: isEOOD ? 'EOOD' : (isET ? 'ET' : 'OTHER'),
         incorporation_date: comp.registrationDate || company.incorporation_date || null,
         address: comp.seat ? formatAddress(comp.seat) : (company.address || null),
+        status: status,
+        is_active: isActive,
+        is_eligible_for_wallester: isEligible,
+        filter_reason: !isEligible ? (
+          !isActive ? 'inactive' : 
+          (!isEOOD && !isET) ? 'wrong_type' : 
+          !englishName ? 'no_english_name' : 
+          'unknown'
+        ) : null,
         details: details
       };
       enrichedCompanies.push(merged);
     }
     
-    console.log(`[FILTER] Final result: ${enrichedCompanies.length} companies after filtering`);
+    console.log(`[FILTER] Total companies collected: ${enrichedCompanies.length} (eligible: ${enrichedCompanies.filter(c => c.is_eligible_for_wallester).length})`);
 
     // Ensure hinted EIK (if provided)
     if (eikHint && !seen.has(String(eikHint))) {

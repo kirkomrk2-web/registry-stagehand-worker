@@ -1,0 +1,748 @@
+<!doctype html>
+<html lang="bg">
+<head>
+  <meta charset="utf-8" />
+  <title>Registry Results Viewer - Live CompanyBook</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root{
+      --bg:#0a0e1a; --panel:#121827; --muted:#94a3b8; --text:#f1f5f9; 
+      --accent:#10b981; --accent2:#6366f1; --ok:#22c55e; --warn:#f59e0b; 
+      --err:#ef4444; --border:#1e293b;
+    }
+    *{box-sizing:border-box; margin:0; padding:0}
+    body{
+      font-family:'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background:var(--bg); color:var(--text); line-height:1.6;
+    }
+    .container{max-width:1400px; margin:0 auto; padding:20px}
+    
+    header{
+      background:linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+      padding:24px; border-radius:16px; margin-bottom:24px;
+      border:1px solid var(--border);
+    }
+    header h1{font-size:28px; font-weight:700; margin-bottom:8px}
+    header p{color:var(--muted); font-size:14px}
+    
+    .search-panel{
+      background:var(--panel); padding:24px; border-radius:12px;
+      border:1px solid var(--border); margin-bottom:24px;
+    }
+    .input-group{display:flex; gap:12px; margin-bottom:16px}
+    input, select{
+      flex:1; background:#0f172a; border:1px solid var(--border);
+      border-radius:8px; padding:12px 16px; color:var(--text);
+      font-size:14px; transition:all 0.2s;
+    }
+    input:focus, select:focus{
+      outline:none; border-color:var(--accent); box-shadow:0 0 0 3px rgba(16,185,129,0.1);
+    }
+    
+    button{
+      background:linear-gradient(135deg, var(--accent) 0%, #059669 100%);
+      border:none; border-radius:8px; padding:12px 24px; color:white;
+      font-weight:600; cursor:pointer; transition:all 0.2s;
+    }
+    button:hover{transform:translateY(-2px); box-shadow:0 4px 12px rgba(16,185,129,0.4)}
+    button:disabled{opacity:0.5; cursor:not-allowed; transform:none}
+    button.secondary{
+      background:linear-gradient(135deg, var(--accent2) 0%, #4f46e5 100%);
+    }
+    
+    .stats{
+      display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));
+      gap:16px; margin-bottom:24px;
+    }
+    .stat-card{
+      background:var(--panel); padding:20px; border-radius:12px;
+      border:1px solid var(--border); text-align:center;
+    }
+    .stat-value{font-size:32px; font-weight:700; margin-bottom:4px}
+    .stat-label{color:var(--muted); font-size:13px; text-transform:uppercase; letter-spacing:0.5px}
+    .stat-card.ok .stat-value{color:var(--ok)}
+    .stat-card.warn .stat-value{color:var(--warn)}
+    .stat-card.err .stat-value{color:var(--err)}
+    
+    .accordion{border:1px solid var(--border); border-radius:12px; overflow:hidden; margin-bottom:12px}
+    .accordion-header{
+      background:var(--panel); padding:16px 20px; cursor:pointer;
+      display:flex; justify-content:space-between; align-items:center;
+      transition:all 0.2s; user-select:none;
+    }
+    .accordion-header:hover{background:#1a2332}
+    .accordion-header.active{background:linear-gradient(135deg, #1e3a2f 0%, #1a2332 100%)}
+    .accordion-title{font-weight:600; font-size:16px; display:flex; align-items:center; gap:12px}
+    .accordion-icon{
+      width:24px; height:24px; border-radius:6px; display:flex;
+      align-items:center; justify-content:center; font-size:14px; font-weight:700;
+      transition:transform 0.3s;
+    }
+    .accordion-header.active .accordion-icon{transform:rotate(180deg)}
+    .accordion-content{
+      max-height:0; overflow:hidden; transition:max-height 0.3s ease-out;
+      background:#0d1117;
+    }
+    .accordion-content.active{max-height:3000px}
+    .accordion-body{padding:20px}
+    
+    .badge{
+      display:inline-block; padding:4px 10px; border-radius:6px;
+      font-size:11px; font-weight:600; text-transform:uppercase;
+      letter-spacing:0.5px;
+    }
+    .badge.ok{background:rgba(34,197,94,0.2); color:var(--ok); border:1px solid var(--ok)}
+    .badge.warn{background:rgba(245,158,11,0.2); color:var(--warn); border:1px solid var(--warn)}
+    .badge.err{background:rgba(239,68,68,0.2); color:var(--err); border:1px solid var(--err)}
+    .badge.info{background:rgba(99,102,241,0.2); color:var(--accent2); border:1px solid var(--accent2)}
+    
+    .company-card{
+      background:var(--panel); border:1px solid var(--border);
+      border-radius:10px; padding:16px; margin-bottom:12px;
+    }
+    .company-header{display:flex; justify-content:space-between; margin-bottom:12px}
+    .company-name{font-size:16px; font-weight:600}
+    .company-details{display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px}
+    .detail-row{display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid #1a1f2e}
+    .detail-row:last-child{border-bottom:none}
+    .detail-label{color:var(--muted); font-size:13px}
+    .detail-value{font-weight:500; font-size:14px}
+    
+    .empty-state{
+      text-align:center; padding:60px 20px; color:var(--muted);
+    }
+    .empty-state svg{width:64px; height:64px; margin-bottom:16px; opacity:0.5}
+    
+    .loading{
+      display:inline-block; width:20px; height:20px;
+      border:2px solid var(--border); border-top-color:var(--accent);
+      border-radius:50%; animation:spin 0.8s linear infinite;
+    }
+    @keyframes spin{to{transform:rotate(360deg)}}
+    
+    .error-banner{
+      background:rgba(239,68,68,0.1); border:1px solid var(--err);
+      border-radius:8px; padding:16px; margin-bottom:16px; color:var(--err);
+    }
+    
+    .hint{
+      background:rgba(99,102,241,0.1); border:1px solid var(--accent2);
+      border-radius:8px; padding:12px; margin-bottom:16px; color:#b4c6fc;
+      font-size:13px;
+    }
+    
+    label.checkbox{
+      display:flex; align-items:center; gap:8px; cursor:pointer;
+      padding:8px 12px; border-radius:8px; background:#0f172a;
+      border:1px solid transparent; transition:all 0.2s;
+      user-select:none;
+    }
+    label.checkbox:hover{border-color:var(--accent)}
+    label.checkbox input[type="checkbox"]{cursor:pointer}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>📊 Registry Results Viewer - Live CompanyBook</h1>
+      <p>LIVE търсене през CompanyBook API с точна филтрация и structured резултати</p>
+    </header>
+
+    <!-- Proxy Status Panel -->
+    <div id="proxyPanel" class="search-panel" style="margin-bottom:16px">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px">
+        <h3 style="margin:0; font-size:16px">🔄 Proxy Rotation Status</h3>
+        <button id="refreshProxyBtn" class="secondary" style="padding:8px 16px">🔄 Refresh</button>
+      </div>
+      
+      <div id="proxyStats" class="stats" style="margin-bottom:16px">
+        <div class="stat-card">
+          <div class="stat-value" id="proxyUptime">--</div>
+          <div class="stat-label">Uptime (min)</div>
+        </div>
+        <div class="stat-card ok">
+          <div class="stat-value" id="proxyHealthy">--</div>
+          <div class="stat-label">Healthy Proxies</div>
+        </div>
+        <div class="stat-card warn">
+          <div class="stat-value" id="proxyRequests">--</div>
+          <div class="stat-label">Total Requests</div>
+        </div>
+        <div class="stat-card info">
+          <div class="stat-value" id="proxySuccess">--%</div>
+          <div class="stat-label">Success Rate</div>
+        </div>
+      </div>
+
+      <div id="proxyList" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:12px">
+        <!-- Proxy cards will be inserted here -->
+      </div>
+
+      <div class="hint" style="margin-top:12px">
+        ⚠️ Proxy сървър: <code>node server/proxy_status_server.mjs</code> → http://localhost:4322
+      </div>
+    </div>
+
+    <div class="search-panel">
+      <div class="hint">
+        ⚠️ Първо стартирай proxy: <code>node server/companybook_proxy.mjs</code> → http://localhost:4321
+      </div>
+      
+      <div class="input-group">
+        <input type="text" id="fullName" placeholder="Въведи пълно име (напр. Иван Петров Георгиев)" />
+        <input type="number" id="limit" value="5" min="1" max="20" placeholder="Limit" style="max-width:100px" />
+      </div>
+      
+      <div class="input-group" style="flex-wrap:wrap">
+        <label class="checkbox">
+          <input type="checkbox" id="strict" checked />
+          Стриктно съвпадение (три имена)
+        </label>
+        <label class="checkbox">
+          <input type="checkbox" id="showSimilar" />
+          Покажи подобни (ако няма точни)
+        </label>
+        <label class="checkbox">
+          <input type="checkbox" id="showEmpty" />
+          Покажи кандидати без фирми
+        </label>
+        <label class="checkbox">
+          <input type="checkbox" id="autoEnrich" checked />
+          Auto enrich по EIK
+        </label>
+      </div>
+      
+      <div class="input-group">
+        <button id="searchBtn">
+          <span id="searchText">🔍 Live търсене</span>
+          <span id="searchLoading" class="loading" style="display:none"></span>
+        </button>
+        <button class="secondary" id="exportBtn" disabled>📥 Export JSON</button>
+      </div>
+    </div>
+
+    <div id="errorBanner" class="error-banner" style="display:none"></div>
+
+    <div id="statsContainer" style="display:none">
+      <div class="stats">
+        <div class="stat-card">
+          <div class="stat-value" id="totalCandidates">0</div>
+          <div class="stat-label">Намерени кандидати</div>
+        </div>
+        <div class="stat-card ok">
+          <div class="stat-value" id="totalCompanies">0</div>
+          <div class="stat-label">Общо компании</div>
+        </div>
+        <div class="stat-card warn">
+          <div class="stat-value" id="eligibleCompanies">0</div>
+          <div class="stat-label">Eligible (EOOD/ET 100%)</div>
+        </div>
+        <div class="stat-card info">
+          <div class="stat-value" id="activeCompanies">0</div>
+          <div class="stat-label">Активни компании</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="resultsContainer"></div>
+  </div>
+
+  <script>
+    let currentData = null;
+    const API_BASE = 'http://localhost:4321';
+
+    const els = {
+      fullName: document.getElementById('fullName'),
+      limit: document.getElementById('limit'),
+      searchBtn: document.getElementById('searchBtn'),
+      searchText: document.getElementById('searchText'),
+      searchLoading: document.getElementById('searchLoading'),
+      exportBtn: document.getElementById('exportBtn'),
+      errorBanner: document.getElementById('errorBanner'),
+      statsContainer: document.getElementById('statsContainer'),
+      resultsContainer: document.getElementById('resultsContainer'),
+      totalCandidates: document.getElementById('totalCandidates'),
+      totalCompanies: document.getElementById('totalCompanies'),
+      eligibleCompanies: document.getElementById('eligibleCompanies'),
+      activeCompanies: document.getElementById('activeCompanies'),
+      strict: document.getElementById('strict'),
+      showSimilar: document.getElementById('showSimilar'),
+      showEmpty: document.getElementById('showEmpty'),
+      autoEnrich: document.getElementById('autoEnrich'),
+    };
+
+    function normName(s){
+      return (s||'')
+        .replace(/\u00a0/g,' ')
+        .replace(/\s+/g,' ')
+        .replace(/["'„""]/g,'')
+        .replace(/\./g,'')
+        .replace(/[^\p{L}\p{N} ]/gu,'')
+        .trim().toLowerCase();
+    }
+
+    function showError(msg) {
+      if (!msg) {
+        els.errorBanner.style.display = 'none';
+        els.errorBanner.textContent = '';
+      } else {
+        els.errorBanner.style.display = 'block';
+        els.errorBanner.textContent = '❌ ' + msg;
+      }
+    }
+
+    function setLoading(loading) {
+      els.searchBtn.disabled = loading;
+      els.searchText.style.display = loading ? 'none' : 'inline';
+      els.searchLoading.style.display = loading ? 'inline-block' : 'none';
+    }
+
+    async function fetchJson(url){
+      const resp = await fetch(url);
+      if(!resp.ok) {
+        const text = await resp.text().catch(()=>'');
+        throw new Error(`HTTP ${resp.status}: ${text}`);
+      }
+      return await resp.json();
+    }
+
+    function extractCompaniesFromRelationships(relData){
+      const companies = [];
+      const relationships = relData?.relationships || [];
+      for(const rel of relationships){
+        const entity = rel.entity || {};
+        const rtype = rel.relationshipType || rel.type || '';
+        const isActive = rel.isActive !== false;
+        if(!isActive) continue;
+        if(entity.type !== 'company') continue;
+        
+        const shareStr = rel?.metadata?.share || rel?.metadata?.percentage || null;
+        const shareNum = typeof shareStr === 'string' ? parseFloat(String(shareStr).replace('%','')) : (typeof shareStr === 'number' ? shareStr : NaN);
+        const isSole = rtype === 'SoleCapitalOwner' || (!isNaN(shareNum) && Math.round(shareNum) === 100);
+        const isET = rtype === 'PhysicalPersonTrader';
+        
+        if (isSole || isET){
+          const category = isET ? 'ET' : (rtype === 'SoleCapitalOwner' ? 'SoleCapitalOwner' : 'Partners100');
+          companies.push({
+            eik: entity.id || entity.uic || null,
+            name_bg: entity.name || null,
+            name_en: entity.name_en || null,
+            category
+          });
+        }
+      }
+      return companies;
+    }
+
+    function formatAddress(seat){
+      if(!seat) return null;
+      const parts = [];
+      if(seat.country) parts.push(seat.country);
+      if(seat.region) parts.push(seat.region);
+      if(seat.district) parts.push(seat.district);
+      if(seat.municipality) parts.push(seat.municipality);
+      if(seat.settlement) parts.push(seat.settlement);
+      if(seat.postCode) parts.push(seat.postCode);
+      return parts.length ? parts.join(', ') : null;
+    }
+
+    function detectEntityType(legalForm, category){
+      const lf = String(legalForm||'').toLowerCase();
+      
+      // Check category first (most reliable)
+      if(category === 'ET') return 'ET';
+      
+      // Check for EOOD variations
+      if(lf.includes('еоод') || lf.includes('eood')) return 'EOOD';
+      if(lf.includes('еднолично дружество')) return 'EOOD';
+      if(lf.includes('limited liability')) return 'EOOD';
+      
+      // Check for ET variations
+      if(lf.includes('едноличен търговец')) return 'ET';
+      if(lf.includes('sole trader')) return 'ET';
+      if(/\bет\b/.test(lf) || /\bet\b/.test(lf)) return 'ET';
+      
+      // If category is SoleCapitalOwner, likely EOOD
+      if(category === 'SoleCapitalOwner') return 'EOOD';
+      
+      return 'OTHER';
+    }
+
+    function isActiveStatus(status){
+      const s = String(status||'').toUpperCase();
+      return s === 'N' || s === 'E';
+    }
+
+    async function searchByFullName() {
+      showError('');
+      const fullName = els.fullName.value.trim();
+      const limit = parseInt(els.limit.value,10) || 5;
+      const strict = els.strict.checked;
+      const showSimilar = els.showSimilar.checked;
+      const showEmpty = els.showEmpty.checked;
+      const autoEnrich = els.autoEnrich.checked;
+
+      if (!fullName || fullName.length < 3) {
+        showError('Моля въведи пълно име (минимум 3 символа)');
+        return;
+      }
+
+      try {
+        setLoading(true);
+        els.resultsContainer.innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8">Търсене...</div>';
+
+        // Step 1: Search person
+        const searchUrl = `${API_BASE}/person-search?name=${encodeURIComponent(fullName)}&limit=${limit}`;
+        const searchData = await fetchJson(searchUrl);
+        const allPeople = Array.isArray(searchData?.results) ? searchData.results : [];
+        
+        if(allPeople.length === 0){
+          showError('Няма намерени кандидати в CompanyBook за "' + fullName + '"');
+          els.resultsContainer.innerHTML = `
+            <div class="empty-state">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+              </svg>
+              <h3>Няма резултати</h3>
+              <p>Не са намерени лица с име "${fullName}"</p>
+            </div>
+          `;
+          return;
+        }
+
+        // Filter by exact match if strict
+        const target = normName(fullName);
+        const exactPeople = allPeople.filter(p => normName(p.name) === target);
+        let people = strict ? exactPeople : (exactPeople.length ? exactPeople : allPeople);
+
+        if(people.length === 0 && showSimilar && !strict){
+          people = allPeople;
+        }
+
+        if(people.length === 0){
+          showError('Няма точни съвпадения по три имена');
+          els.resultsContainer.innerHTML = `
+            <div class="empty-state">
+              <h3>Няма точни съвпадения</h3>
+              <p>Пробвай: махни "Стриктно съвпадение" или избери "Покажи подобни"</p>
+            </div>
+          `;
+          return;
+        }
+
+        // Step 2: For each candidate get relationships + companies
+        const candidates = [];
+        let totalComps = 0, eligibleComps = 0, activeComps = 0;
+
+        for(const person of people){
+          const pid = person.indent || person.identifier || person.id;
+          
+          // Get relationships
+          const relUrl = `${API_BASE}/relationships/${pid}?type=ownership&depth=2&include_historical=false`;
+          const relData = await fetchJson(relUrl);
+          const companies = extractCompaniesFromRelationships(relData);
+
+          if(!showEmpty && companies.length === 0) continue;
+
+          // Enrich companies by EIK
+          const enrichedCompanies = [];
+          if(autoEnrich && companies.length > 0){
+            for(const comp of companies){
+              if(!comp.eik) continue;
+              try{
+                const detailUrl = `${API_BASE}/company/${comp.eik}?with_data=true`;
+                const detailData = await fetchJson(detailUrl);
+                const c = detailData?.company || detailData || {};
+                
+                const entityType = detectEntityType(c.legalForm, comp.category);
+                const isActive = isActiveStatus(c.status);
+                const englishName = c.companyNameTransliteration?.name || comp.name_en || null;
+                const isEligible = isActive && (entityType === 'EOOD' || entityType === 'ET') && !!englishName;
+
+                enrichedCompanies.push({
+                  eik: comp.eik,
+                  name_bg: c.name || comp.name_bg,
+                  name_en: englishName,
+                  category: comp.category,
+                  entity_type: entityType,
+                  legal_form: c.legalForm || null,
+                  status: c.status || null,
+                  is_active: isActive,
+                  is_eligible: isEligible,
+                  address: formatAddress(c.seat),
+                  incorporation_date: c.registrationDate || null,
+                });
+
+                totalComps++;
+                if(isEligible) eligibleComps++;
+                if(isActive) activeComps++;
+              }catch(e){
+                console.error(`Failed to enrich ${comp.eik}:`, e);
+              }
+            }
+          } else {
+            // No enrichment, just add basic info
+            for(const comp of companies){
+              enrichedCompanies.push({
+                ...comp,
+                is_active: null,
+                is_eligible: null,
+              });
+              totalComps++;
+            }
+          }
+
+          candidates.push({
+            person,
+            pid,
+            companies: enrichedCompanies,
+          });
+        }
+
+        if(candidates.length === 0){
+          els.resultsContainer.innerHTML = `
+            <div class="empty-state">
+              <h3>Няма кандидати с компании</h3>
+              <p>Избери "Покажи кандидати без фирми" за да видиш всички</p>
+            </div>
+          `;
+          return;
+        }
+
+        currentData = candidates;
+        
+        // Update stats
+        els.statsContainer.style.display = 'block';
+        els.totalCandidates.textContent = candidates.length;
+        els.totalCompanies.textContent = totalComps;
+        els.eligibleCompanies.textContent = eligibleComps;
+        els.activeCompanies.textContent = activeComps;
+        els.exportBtn.disabled = false;
+
+        // Render results
+        renderResults(candidates);
+
+      } catch (err) {
+        showError('Грешка: ' + (err.message || err) + ' - Провери дали proxy-то работи на http://localhost:4321');
+        console.error(err);
+        els.resultsContainer.innerHTML = '';
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    function renderResults(candidates) {
+      els.resultsContainer.innerHTML = candidates.map((cand, idx) => {
+        const { person, pid, companies } = cand;
+        const eligibleCount = companies.filter(c => c.is_eligible).length;
+        const activeCount = companies.filter(c => c.is_active).length;
+        
+        return `
+          <div class="accordion">
+            <div class="accordion-header" onclick="toggleAccordion(${idx})">
+              <div class="accordion-title">
+                <div class="accordion-icon">▼</div>
+                <div>
+                  <strong>${person.name || 'Unknown'}</strong>
+                  <span class="badge info" style="margin-left:8px">ID: ${pid}</span>
+                  <span style="color:var(--muted); margin-left:8px">
+                    ${companies.length} компании
+                    ${eligibleCount > 0 ? `· <span style="color:var(--ok)">${eligibleCount} eligible</span>` : ''}
+                    ${activeCount > 0 ? `· <span style="color:var(--warn)">${activeCount} активни</span>` : ''}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div class="accordion-content" id="accordion-${idx}">
+              <div class="accordion-body">
+                ${renderCompanies(companies)}
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderCompanies(companies) {
+      if (!companies || companies.length === 0) {
+        return '<div class="empty-state"><p>Няма компании</p></div>';
+      }
+
+      return companies.map((c) => {
+        return `
+          <div class="company-card">
+            <div class="company-header">
+              <div class="company-name">${c.name_bg || 'N/A'}</div>
+              <div>
+                <span class="badge ${c.category === 'ET' ? 'info' : 'ok'}">${c.category}</span>
+                ${c.is_eligible !== null ? (c.is_eligible 
+                  ? '<span class="badge ok" style="margin-left:8px">✓ ELIGIBLE</span>' 
+                  : '<span class="badge err" style="margin-left:8px">NOT ELIGIBLE</span>'
+                ) : ''}
+              </div>
+            </div>
+            <div class="company-details">
+              <div>
+                <div class="detail-row">
+                  <span class="detail-label">ЕИК:</span>
+                  <span class="detail-value">${c.eik || 'N/A'}</span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">English Name:</span>
+                  <span class="detail-value">${c.name_en || '❌ Липсва'}</span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">Тип:</span>
+                  <span class="detail-value">
+                    <span class="badge ${c.entity_type === 'EOOD' || c.entity_type === 'ET' ? 'info' : 'warn'}">
+                      ${c.entity_type || 'N/A'}
+                    </span>
+                  </span>
+                </div>
+              </div>
+              <div>
+                ${c.is_active !== null ? `
+                <div class="detail-row">
+                  <span class="detail-label">Статус:</span>
+                  <span class="detail-value">
+                    <span class="badge ${c.is_active ? 'ok' : 'err'}">
+                      ${c.status || 'N/A'} ${c.is_active ? '(Active)' : '(Inactive)'}
+                    </span>
+                  </span>
+                </div>
+                ` : ''}
+                ${c.legal_form ? `
+                <div class="detail-row">
+                  <span class="detail-label">Правна форма:</span>
+                  <span class="detail-value">${c.legal_form}</span>
+                </div>
+                ` : ''}
+                ${c.address ? `
+                <div class="detail-row">
+                  <span class="detail-label">Адрес:</span>
+                  <span class="detail-value">${c.address}</span>
+                </div>
+                ` : ''}
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function toggleAccordion(idx) {
+      const content = document.getElementById(`accordion-${idx}`);
+      const header = content.previousElementSibling;
+      
+      if (content.classList.contains('active')) {
+        content.classList.remove('active');
+        header.classList.remove('active');
+      } else {
+        content.classList.add('active');
+        header.classList.add('active');
+      }
+    }
+
+    function exportData() {
+      if (!currentData) return;
+      
+      const blob = new Blob([JSON.stringify(currentData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `registry_live_results_${Date.now()}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // Event listeners
+    els.searchBtn.addEventListener('click', searchByFullName);
+    els.fullName.addEventListener('keypress', e => e.key === 'Enter' && searchByFullName());
+    els.exportBtn.addEventListener('click', exportData);
+
+    // ========== Proxy Status Integration ==========
+    const PROXY_API = 'http://localhost:4322';
+    
+    async function fetchProxyStatus() {
+      try {
+        const resp = await fetch(`${PROXY_API}/status`);
+        if (!resp.ok) throw new Error('Proxy server not responding');
+        return await resp.json();
+      } catch (e) {
+        console.error('Failed to fetch proxy status:', e);
+        return null;
+      }
+    }
+
+    function renderProxyStatus(data) {
+      if (!data) {
+        document.getElementById('proxyList').innerHTML = '<div class="hint" style="color:var(--err)">❌ Proxy сървърът не отговаря</div>';
+        return;
+      }
+
+      const { stats, proxies } = data;
+      
+      // Update stats
+      document.getElementById('proxyUptime').textContent = stats.uptimeMinutes || 0;
+      document.getElementById('proxyHealthy').textContent = stats.healthyProxies || 0;
+      document.getElementById('proxyRequests').textContent = stats.totalRequests || 0;
+      document.getElementById('proxySuccess').textContent = (stats.successRate || 0) + '%';
+
+      // Render proxy cards
+      const proxyHTML = proxies.map(p => {
+        const healthColor = p.health >= 70 ? 'var(--ok)' : (p.health >= 40 ? 'var(--warn)' : 'var(--err)');
+        const statusBadge = p.status === 'active' ? 'ok' : (p.status === 'error' ? 'err' : 'info');
+        const lastUsedTime = p.lastUsed ? new Date(p.lastUsed).toLocaleTimeString('bg-BG') : 'Never';
+        
+        return `
+          <div class="company-card" style="background:${p.status === 'active' ? 'rgba(16,185,129,0.05)' : 'var(--panel)'}">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px">
+              <div>
+                <strong style="font-size:14px">${p.name || p.id}</strong>
+                <span class="badge ${statusBadge}" style="margin-left:8px">${p.status.toUpperCase()}</span>
+                ${p.verified ? `<span class="badge ok" style="margin-left:4px">✓ ${p.country || 'Verified'}</span>` : ''}
+              </div>
+              <div style="font-size:24px; font-weight:700; color:${healthColor}">${p.health}%</div>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:12px">
+              <div class="detail-row" style="border:none; padding:4px 0">
+                <span class="detail-label">Requests:</span>
+                <span class="detail-value">${p.requests}</span>
+              </div>
+              <div class="detail-row" style="border:none; padding:4px 0">
+                <span class="detail-label">Success:</span>
+                <span class="detail-value" style="color:var(--ok)">${p.successes}</span>
+              </div>
+              <div class="detail-row" style="border:none; padding:4px 0">
+                <span class="detail-label">Failures:</span>
+                <span class="detail-value" style="color:var(--err)">${p.failures}</span>
+              </div>
+              <div class="detail-row" style="border:none; padding:4px 0">
+                <span class="detail-label">Last Used:</span>
+                <span class="detail-value">${lastUsedTime}</span>
+              </div>
+            </div>
+            ${p.lastError ? `<div style="margin-top:8px; font-size:11px; color:var(--err)">⚠️ ${p.lastError}</div>` : ''}
+          </div>
+        `;
+      }).join('');
+
+      document.getElementById('proxyList').innerHTML = proxyHTML || '<div class="hint">Няма конфигурирани проксита</div>';
+    }
+
+    async function refreshProxyStatus() {
+      const data = await fetchProxyStatus();
+      renderProxyStatus(data);
+    }
+
+    // Initial load
+    refreshProxyStatus();
+
+    // Auto-refresh every 10 seconds
+    setInterval(refreshProxyStatus, 10000);
+
+    // Manual refresh button
+    document.getElementById('refreshProxyBtn').addEventListener('click', refreshProxyStatus);
+  </script>
+</body>
+</html>
