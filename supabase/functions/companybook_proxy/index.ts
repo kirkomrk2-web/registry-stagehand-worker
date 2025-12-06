@@ -41,8 +41,8 @@ serve(async (req: Request) => {
       );
     }
     
-    // Person search endpoint
-    if (path.includes("/person-search")) {
+    // 1. People search endpoint: /people/search?name=Full+Name
+    if (path.includes("/people/search")) {
       const name = url.searchParams.get("name");
       
       if (!name) {
@@ -61,8 +61,7 @@ serve(async (req: Request) => {
       
       console.log(`[CompanyBook Proxy] Person search requested: ${name}`);
       
-      // Call CompanyBook API
-      const apiUrl = `https://api.companybook.bg/api/get-person?name=${encodeURIComponent(name)}`;
+      const apiUrl = `https://api.companybook.bg/api/people/search?name=${encodeURIComponent(name)}`;
       
       try {
         const response = await fetch(apiUrl, {
@@ -118,13 +117,214 @@ serve(async (req: Request) => {
       }
     }
     
+    // 2. Person details endpoint: /people/{identifier}?with_data=true
+    if (path.match(/\/people\/[^\/]+$/)) {
+      const identifier = path.split("/people/")[1];
+      const withData = url.searchParams.get("with_data");
+      
+      console.log(`[CompanyBook Proxy] Person details requested: ${identifier}`);
+      
+      let apiUrl = `https://api.companybook.bg/api/people/${identifier}`;
+      if (withData) apiUrl += `?with_data=${withData}`;
+      
+      try {
+        const response = await fetch(apiUrl, {
+          headers: {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Accept": "application/json",
+          },
+        });
+        
+        if (!response.ok) {
+          console.error(`[CompanyBook Proxy] API error: ${response.status}`);
+          return new Response(
+            JSON.stringify({ 
+              error: "CompanyBook API error", 
+              status: response.status 
+            }),
+            { 
+              status: response.status, 
+              headers: { 
+                ...corsHeaders,
+                "Content-Type": "application/json" 
+              } 
+            }
+          );
+        }
+        
+        const data = await response.json();
+        console.log(`[CompanyBook Proxy] Person details retrieved successfully`);
+        
+        return new Response(JSON.stringify(data), {
+          headers: { 
+            ...corsHeaders,
+            "Content-Type": "application/json" 
+          }
+        });
+        
+      } catch (error: unknown) {
+        console.error(`[CompanyBook Proxy] Fetch error:`, error);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        return new Response(
+          JSON.stringify({ 
+            error: "Failed to fetch from CompanyBook API", 
+            message: errorMessage 
+          }),
+          { 
+            status: 500, 
+            headers: { 
+              ...corsHeaders,
+              "Content-Type": "application/json" 
+            } 
+          }
+        );
+      }
+    }
+    
+    // 3. Relationships/Ownership endpoint: /relationships/{identifier}?type=ownership&depth=2&include_historical=false
+    if (path.match(/\/relationships\/[^\/]+$/)) {
+      const identifier = path.split("/relationships/")[1];
+      const type = url.searchParams.get("type");
+      const depth = url.searchParams.get("depth");
+      const includeHistorical = url.searchParams.get("include_historical");
+      
+      console.log(`[CompanyBook Proxy] Relationships requested: ${identifier}`);
+      
+      let apiUrl = `https://api.companybook.bg/api/relationships/${identifier}`;
+      const params: string[] = [];
+      if (type) params.push(`type=${type}`);
+      if (depth) params.push(`depth=${depth}`);
+      if (includeHistorical) params.push(`include_historical=${includeHistorical}`);
+      if (params.length > 0) apiUrl += `?${params.join("&")}`;
+      
+      try {
+        const response = await fetch(apiUrl, {
+          headers: {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Accept": "application/json",
+          },
+        });
+        
+        if (!response.ok) {
+          console.error(`[CompanyBook Proxy] API error: ${response.status}`);
+          return new Response(
+            JSON.stringify({ 
+              error: "CompanyBook API error", 
+              status: response.status 
+            }),
+            { 
+              status: response.status, 
+              headers: { 
+                ...corsHeaders,
+                "Content-Type": "application/json" 
+              } 
+            }
+          );
+        }
+        
+        const data = await response.json();
+        console.log(`[CompanyBook Proxy] Relationships retrieved successfully`);
+        
+        return new Response(JSON.stringify(data), {
+          headers: { 
+            ...corsHeaders,
+            "Content-Type": "application/json" 
+          }
+        });
+        
+      } catch (error: unknown) {
+        console.error(`[CompanyBook Proxy] Fetch error:`, error);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        return new Response(
+          JSON.stringify({ 
+            error: "Failed to fetch from CompanyBook API", 
+            message: errorMessage 
+          }),
+          { 
+            status: 500, 
+            headers: { 
+              ...corsHeaders,
+              "Content-Type": "application/json" 
+            } 
+          }
+        );
+      }
+    }
+    
+    // 4. Company details endpoint: /companies/{uic}?with_data=true
+    if (path.match(/\/companies\/[^\/]+$/)) {
+      const uic = path.split("/companies/")[1];
+      const withData = url.searchParams.get("with_data");
+      
+      console.log(`[CompanyBook Proxy] Company details requested: ${uic}`);
+      
+      let apiUrl = `https://api.companybook.bg/api/companies/${uic}`;
+      if (withData) apiUrl += `?with_data=${withData}`;
+      
+      try {
+        const response = await fetch(apiUrl, {
+          headers: {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Accept": "application/json",
+          },
+        });
+        
+        if (!response.ok) {
+          console.error(`[CompanyBook Proxy] API error: ${response.status}`);
+          return new Response(
+            JSON.stringify({ 
+              error: "CompanyBook API error", 
+              status: response.status 
+            }),
+            { 
+              status: response.status, 
+              headers: { 
+                ...corsHeaders,
+                "Content-Type": "application/json" 
+              } 
+            }
+          );
+        }
+        
+        const data = await response.json();
+        console.log(`[CompanyBook Proxy] Company details retrieved successfully`);
+        
+        return new Response(JSON.stringify(data), {
+          headers: { 
+            ...corsHeaders,
+            "Content-Type": "application/json" 
+          }
+        });
+        
+      } catch (error: unknown) {
+        console.error(`[CompanyBook Proxy] Fetch error:`, error);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        return new Response(
+          JSON.stringify({ 
+            error: "Failed to fetch from CompanyBook API", 
+            message: errorMessage 
+          }),
+          { 
+            status: 500, 
+            headers: { 
+              ...corsHeaders,
+              "Content-Type": "application/json" 
+            } 
+          }
+        );
+      }
+    }
+    
     // Default 404
     return new Response(
       JSON.stringify({ 
         error: "Not found",
         availableEndpoints: [
           "/health",
-          "/person-search?name=Full+Name"
+          "/people/search?name=Full+Name",
+          "/people/{identifier}?with_data=true",
+          "/relationships/{identifier}?type=ownership&depth=2&include_historical=false",
+          "/companies/{uic}?with_data=true"
         ]
       }), 
       { 
