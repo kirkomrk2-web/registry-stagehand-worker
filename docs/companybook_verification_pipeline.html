@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CompanyBook Verification Pipeline - Визуализация</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 30px;
+      min-height: 100vh;
+    }
+    
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      overflow: hidden;
+    }
+    
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 40px;
+      text-align: center;
+    }
+    
+    .header h1 {
+      font-size: 2.5em;
+      margin-bottom: 15px;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+    }
+    
+    .header p {
+      font-size: 1.2em;
+      opacity: 0.95;
+    }
+    
+    .content {
+      padding: 40px;
+    }
+    
+    .pipeline {
+      display: flex;
+      flex-direction: column;
+      gap: 30px;
+      margin: 40px 0;
+    }
+    
+    .step {
+      display: flex;
+      align-items: center;
+      gap: 30px;
+      padding: 30px;
+      background: #f8f9fa;
+      border-radius: 15px;
+      border-left: 5px solid #667eea;
+      transition: all 0.3s ease;
+      position: relative;
+    }
+    
+    .step:hover {
+      transform: translateX(10px);
+      box-shadow: 0 5px 20px rgba(102, 126, 234, 0.3);
+    }
+    
+    .step-number {
+      flex-shrink: 0;
+      width: 60px;
+      height: 60px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5em;
+      font-weight: bold;
+      box-shadow: 0 4px 10px rgba(102, 126, 234, 0.4);
+    }
+    
+    .step-content {
+      flex: 1;
+    }
+    
+    .step-title {
+      font-size: 1.4em;
+      font-weight: bold;
+      color: #2d3748;
+      margin-bottom: 10px;
+    }
+    
+    .step-description {
+      color: #4a5568;
+      line-height: 1.6;
+      margin-bottom: 10px;
+    }
+    
+    .step-details {
+      background: white;
+      padding: 15px;
+      border-radius: 10px;
+      margin-top: 15px;
+      border: 1px solid #e2e8f0;
+    }
+    
+    .step-details ul {
+      list-style-position: inside;
+      color: #2d3748;
+    }
+    
+    .step-details li {
+      padding: 5px 0;
+    }
+    
+    .code-block {
+      background: #2d3748;
+      color: #e2e8f0;
+      padding: 20px;
+      border-radius: 10px;
+      margin: 20px 0;
+      overflow-x: auto;
+      font-family: 'Courier New', monospace;
+      font-size: 0.9em;
+    }
+    
+    .success {
+      color: #38a169;
+      font-weight: bold;
+    }
+    
+    .warning {
+      color: #ed8936;
+      font-weight: bold;
+    }
+    
+    .error {
+      color: #e53e3e;
+      font-weight: bold;
+    }
+    
+    .info-box {
+      background: #ebf8ff;
+      border-left: 4px solid #3182ce;
+      padding: 20px;
+      margin: 20px 0;
+      border-radius: 5px;
+    }
+    
+    .info-box h3 {
+      color: #2c5282;
+      margin-bottom: 10px;
+    }
+    
+    .arrow {
+      text-align: center;
+      color: #667eea;
+      font-size: 2em;
+      margin: 10px 0;
+    }
+    
+    .tables-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+      margin: 30px 0;
+    }
+    
+    .table-card {
+      background: white;
+      border: 2px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 20px;
+      transition: all 0.3s ease;
+    }
+    
+    .table-card:hover {
+      border-color: #667eea;
+      box-shadow: 0 5px 15px rgba(102, 126, 234, 0.2);
+    }
+    
+    .table-card h4 {
+      color: #2d3748;
+      margin-bottom: 15px;
+      font-size: 1.2em;
+    }
+    
+    .table-card ul {
+      list-style: none;
+      color: #4a5568;
+    }
+    
+    .table-card li {
+      padding: 8px 0;
+      border-bottom: 1px solid #f7fafc;
+    }
+    
+    .table-card li:last-child {
+      border-bottom: none;
+    }
+    
+    .status-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.85em;
+      font-weight: bold;
+      margin-left: 10px;
+    }
+    
+    .badge-success {
+      background: #c6f6d5;
+      color: #22543d;
+    }
+    
+    .badge-pending {
+      background: #fed7d7;
+      color: #742a2a;
+    }
+    
+    .badge-processing {
+      background: #feebc8;
+      color: #7c2d12;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🔍 CompanyBook Verification Pipeline</h1>
+      <p>Автоматична проверка на компании и собственици</p>
+    </div>
+    
+    <div class="content">
+      <div class="info-box">
+        <h3>📋 Какво прави тази система?</h3>
+        <p>Автоматично проверява физически лица в Български Търговски Регистър чрез CompanyBook API, намира техните компании където са 100% собственици (SoleCapitalOwner), и филтрира само тези с английско наименование, активен статус и правна форма ЕООД/ЕТ.</p>
+      </div>
+
+      <h2 style="margin: 40px 0 20px 0; color: #2d3748;">🔄 Процес на проверка (Pipeline)</h2>
+      
+      <div class="pipeline">
+        <!-- Step 1 -->
+        <div class="step">
+          <div class="step-number">1</div>
+          <div class="step-content">
+            <div class="step-title">User Input (Chat Agent)</div>
+            <div class="step-description">
+              User влиза на <strong>wallesters.com</strong> и chat agent-ът пита за:
+            </div>
+            <div class="step-details">
+              <ul>
+                <li>📝 3 имена (напр. "Даниел Миленов Мартинов")</li>
+                <li>📅 Дата на раждане</li>
+                <li>📧 Email (опционално)</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="arrow">↓</div>
+
+        <!-- Step 2 -->
+        <div class="step">
+          <div class="step-number">2</div>
+          <div class="step-content">
+            <div class="step-title">INSERT в users_pending <span class="status-badge badge-pending">pending</span></div>
+            <div class="step-description">
+              Данните се записват в Supabase таблица <code>users_pending</code>:
+            </div>
+            <div class="code-block">
+INSERT INTO users_pending (full_name, email, birth_date, status)
+VALUES ('Даниел Миленов Мартинов', 'user@example.com', '1985-03-15', 'pending');
+            </div>
+          </div>
+        </div>
+
+        <div class="arrow">↓</div>
+
+        <!-- Step 3 -->
+        <div class="step">
+          <div class="step-number">3</div>
+          <div class="step-content">
+            <div class="step-title">🔔 Webhook Trigger</div>
+            <div class="step-description">
+              Supabase <strong>webhook</strong> се задейства автоматично при INSERT и извиква Edge Function:
+            </div>
+            <div class="code-block">
+POST https://ansiaiuaygcfztabtknl.supabase.co/functions/v1/users_pending_worker
+Headers: {
+  "Content-Type": "application/json",
+  "Authorization": "Bearer <SERVICE_ROLE_KEY>"
+}
+Body: {
+  "row": {
+    "full_name": "Даниел Миленов Мартинов",
+    "email": "user@example.com",
+    "status": "pending"
+  }
+}
+            </div>
+          </div>
+        </div>
+
+        <div class="arrow">↓</div>
+
+        <!-- Step 4 -->
+        <div class="step">
+          <div class="step-number">4</div>
+          <div class="step-content">
+            <div class="step-title">🔍 CompanyBook API - Search Person</div>
+            <div class="step-description">
+              <strong>users_pending_worker</strong> извиква CompanyBook API за търсене на лицето:
+            </div>
+            <div class="code-block">
+GET https://api.companybook.bg/api/people/search?name=Даниел+Миленов+Мартинов
+
+Response: {
+  "results": [
+    {
+      "identifier": "person_12345",
+      "name": "Даниел Миленов Мартинов",
+      "birthDate": "1985-03-15"
+    }
+  ]
+}
+            </div>
+          </div>
+        </div>
+
+        <div class="arrow">↓</div>
+
+        <!-- Step 5 -->
+        <div class="step">
+          <div class="step-number">5</div>
+          <div class="step-content">
+            <div class="step-title">🏢 CompanyBook API - Get Ownership</div>
+            <div class="step-description">
+              Извлича компании където лицето е собственик (100% или ЕТ):
+            </div>
+            <div class="code-block">
+GET https://api.companybook.bg/api/relationships/person_12345?type=ownership
+
+Response: {
+  "relationships": [
+    {
+      "relationshipType": "SoleCapitalOwner",
+      "entity": {
+        "id": "208341137",
+        "name": "ГРИИН ПОТЕНШЪЛ ЕООД",
+        "type": "company"
+      },
+      "metadata": { "share": "100%" }
+    },
+    {
+      "relationshipType": "SoleCapitalOwner",
+      "entity": {
+        "id": "201234567",
+        "name": "Фаст Топ Фуудс ЕООД",
+        "type": "company"
+      },
+      "metadata": { "share": "100%" }
+    }
+  ]
+}
+            </div>
+            <div class="step-details">
+              <strong>Намерени компании:</strong> 2 (ГРИИН ПОТЕНШЪЛ ЕООД, Фаст Топ Фуудс ЕООД)
+            </div>
+          </div>
+        </div>
+
+        <div class="arrow">↓</div>
+
+        <!-- Step 6 -->
+        <div class="step">
+          <div class="step-number">6</div>
+          <div class="step-content">
+            <div class="step-title">🔎 CompanyBook API - Deep Check (по EIK)</div>
+            <div class="step-description">
+              За <strong>ВСЯКА намерена компания</strong> прави втора проверка <span class="warning">ПО EIK</span> (не по име на собственик!) за да извлече:
+            </div>
+            <div class="code-block">
+GET https://api.companybook.bg/api/companies/208341137?with_data=true
+
+Response: {
+  "company": {
+    "uic": "208341137",
+    "name": "ГРИИН ПОТЕНШЪЛ ЕООД",
+    "legalForm": "ЕООД",
+    "status": "N",  // N = активна, E = активна (в ликвидация)
+    "companyNameTransliteration": {
+      "name": "GRIIN POTENSHAL EOOD"  // ← АНГЛИЙСКО ИМЕ!
+    },
+    "seat": {
+      "settlement": "Sofia",
+      "country": "Bulgaria"
+    }
+  }
+}
+            </div>
+            <div class="step-details">
+              <strong class="success">✅ Проверки:</strong>
+              <ul>
+                <li>Има ли английско име? (companyNameTransliteration) → <strong>ДА</strong></li>
+                <li>Активна ли е? (status === 'N' || 'E') → <strong>ДА</strong></li>
+                <li>ЕООД или ЕТ? → <strong>ДА</strong></li>
+              </ul>
+              <p style="margin-top: 10px;"><strong class="success">Резултат:</strong> Компанията се ДОБАВЯ към <code>companies_slim</code></p>
+            </div>
+          </div>
+        </div>
+
+        <div class="arrow">↓</div>
+
+        <!-- Step 7 -->
+        <div class="step">
+          <div class="step-number">7</div>
+          <div class="step-content">
+            <div class="step-title">📊 Филтриране и обработка</div>
+            <div class="step-description">
+              Функцията <code>buildCompaniesSlim()</code> филтрира до <strong>5 валидни компании</strong>:
+            </div>
+            <div class="step-details">
+              <strong>Критерии за валидна компания:</strong>
+              <ul>
+                <li class="success">✅ Има английско наименование</li>
+                <li class="success">✅ Статус активен (N или E)</li>
+                <li class="success">✅ Правна форма ЕООД или ЕТ</li>
+                <li class="success">✅ User е 100% собственик</li>
+              </ul>
+              <p style="margin-top: 15px;"><strong>companies_slim[] резултат:</strong></p>
+              <div class="code-block" style="margin-top: 10px;">
+[
+  {
+    "id": "uuid-123",
+    "business_name_en": "GRIIN POTENSHAL EOOD",
+    "eik": "208341137",
+    "vat": "BG208341137",
+    "entity_type": "EOOD",
+    "city_en": "Sofia",
+    "region_en": "Sofia-city",
+    "country_en": "Bulgaria"
+  },
+  {
+    "id": "uuid-456",
+    "business_name_en": "FAST TOP FOODS EOOD",
+    "eik": "201234567",
+    "vat": "BG201234567",
+    "entity_type": "EOOD",
+    "city_en": "Sofia",
+    "region_en": "Sofia-city",
+    "country_en": "Bulgaria"
+  }
+]
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="arrow">↓</div>
+
+        <!-- Step 8 -->
+        <div class="step">
+          <div class="step-number">8</div>
+          <div class="step-content">
+            <div class="step-title">💾 Запис в 3 таблици <span class="status-badge badge-success">ready</span></div>
+            <div class="step-description">
+              Worker-ът записва резултатите в 3 таблици в Supabase:
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <h3 style="color: #2d3748; margin: 40px 0 20px 0;">📊 Database Tables</h3>
+      <div class="tables-grid">
+        <div class="table-card">
+          <h4>1️⃣ verified_owners</h4>
+          <ul>
+            <li><strong>full_name:</strong> "Даниел Миленов Мартинов"</li>
+            <li><strong>owner_birthdate:</strong> "1985-03-15"</li>
+            <li><strong>companies:</strong> [всички намерени]</li>
+            <li><strong>companies_slim:</strong> [2 валидни]</li>
+            <li><strong>top_company:</strong> {най-добрата}</li>
+            <li><strong>allocated_phone_number:</strong> +358...</li>
+            <li><strong>email_alias_33mail:</strong> griinpotenshal@33mailbox.com</li>
+          </ul>
+        </div>
+
+        <div class="table-card">
+          <h4>2️⃣ user_registry_checks</h4>
+          <ul>
+            <li><strong>email:</strong> "user@example.com"</li>
+            <li><strong>full_name:</strong> "Даниел..."</li>
+            <li><strong>match_count:</strong> 2 ✅</li>
+            <li><strong>any_match:</strong> TRUE ✅</li>
+            <li><strong>companies:</strong> [companies_slim]</li>
+            <li><strong>status:</strong> "completed"</li>
+            <li><strong>checked_at:</strong> timestamp</li>
+          </ul>
+        </div>
+
+        <div class="table-card">
+          <h4>3️⃣ users_pending</h4>
+          <ul>
+            <li><strong>email:</strong> "user@example.com"</li>
+            <li><strong>full_name:</strong> "Даниел..."</li>
+            <li><strong>status:</strong> "ready_for_stagehand" ✅</li>
+            <li><strong>updated_at:</strong> timestamp</li>
+          </ul>
+          <p style="margin-top: 10px; color: #38a169;"><strong>✅ Готов за следващ етап!</strong></p>
+        </div>
+      </div>
+
+      <div class="info-box" style="background: #f0fff4; border-color: #38a169; margin-top: 40px;">
+        <h3 style="color: #22543d;">✅ Success Flow Summary</h3>
+        <p><strong>users_pending</strong> (pending) → <strong>Webhook</strong> → <strong>users_pending_worker</strong> → <strong>CompanyBook API</strong> (3 calls) → <strong>Filter</strong> → <strong>Write to 3 tables</strong> → <strong>users_pending</strong> (ready_for_stagehand)</p>
+        <p style="margin-top: 15px;"><strong>Време:</strong> ~5-15 секунди (зависи от CompanyBook API response time)</p>
+      </div>
+
+      <h3 style="color: #2d3748; margin: 40px 0 20px 0;">🚨 Възможни статуси</h3>
+      <div class="tables-grid">
+        <div class="table-card">
+          <h4 class="success">✅ ready_for_stagehand</h4>
+          <p>Намерени са 1+ валидни компании с английско име, активен статус и ЕООД/ЕТ форма</p>
+        </div>
+
+        <div class="table-card">
+          <h4 class="warning">⚠️ no_match</h4>
+          <p>Не са намерени компании за това лице в CompanyBook</p>
+        </div>
+
+        <div class="table-card">
+          <h4 class="warning">⚠️ no_valid_match</h4>
+          <p>Намерени са компании, но нито една не отговаря на критериите (няма английско име, неактивна, или не е ЕООД/ЕТ)</p>
+        </div>
+
+        <div class="table-card">
+          <h4 class="error">❌ error</h4>
+          <p>Грешка при обработка (CompanyBook API timeout, network error, etc.)</p>
+        </div>
+      </div>
+
+      <div class="code-block" style="margin-top: 40px;">
+# 🧪 ТЕСТВАНЕ НА СИСТЕМАТА
+
+# 1. Тест с manuel insert
+node test_webhook.mjs
+
+# 2. Проверка на резултатите
+# В Supabase Dashboard:
+# - Database > Tables > user_registry_checks
+# - Търси по email: test_XXXXX@example.com
+# - Провери: match_count, any_match, companies
+
+# 3. Monitor logs
+# Edge Functions > users_pending_worker > Logs
+# Database > Webhooks > Recent Deliveries
+      </div>
+    </div>
+  </div>
+</body>
+</html>
