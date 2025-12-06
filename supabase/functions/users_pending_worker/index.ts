@@ -20,7 +20,7 @@ console.log(`[users_pending_worker] Using CompanyBook API: ${COMPANYBOOK_PROXY ?
 
 // ---------- CompanyBook helpers ----------
 async function searchPersonInCompanyBook(fullName: string) {
-  const url = `${COMPANYBOOK_API_BASE}/people/search?name=${encodeURIComponent(fullName)}`;
+  const url = `https://api.companybook.bg/api/people/search?name=${encodeURIComponent(fullName)}`;
   try {
     const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0", "Accept": "application/json" } });
     if (!res.ok) return null;
@@ -31,7 +31,7 @@ async function searchPersonInCompanyBook(fullName: string) {
 }
 
 async function getPersonDetails(identifier: string) {
-  const url = `${COMPANYBOOK_API_BASE}/people/${identifier}?with_data=true`;
+  const url = `https://api.companybook.bg/api/people/${identifier}?with_data=true`;
   try {
     const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0", "Accept": "application/json" } });
     if (!res.ok) return null;
@@ -42,7 +42,7 @@ async function getPersonDetails(identifier: string) {
 }
 
 async function getOwnershipData(identifier: string) {
-  const url = `${COMPANYBOOK_API_BASE}/relationships/${identifier}?type=ownership&depth=2&include_historical=false`;
+  const url = `https://api.companybook.bg/api/relationships/${identifier}?type=ownership&depth=2`;
   try {
     const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0", "Accept": "application/json" } });
     if (!res.ok) return null;
@@ -53,7 +53,7 @@ async function getOwnershipData(identifier: string) {
 }
 
 async function getCompanyDetails(uic: string) {
-  const url = `${COMPANYBOOK_API_BASE}/companies/${uic}?with_data=true`;
+  const url = `https://api.companybook.bg/api/companies/${uic}?with_data=true`;
   try {
     const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0", "Accept": "application/json" } });
     if (!res.ok) return null;
@@ -235,7 +235,8 @@ serve(async (req: Request) => {
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL") || Deno.env.get("PROJECT_URL") || Deno.env.get("URL");
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SERVICE_ROLE_KEY") || Deno.env.get("SERVICE_ROLE");
+    // TEMPORARY FIX: Hardcoded NEW service_role key (until Supabase Secrets are updated)
+    const serviceRoleKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFuc2lhaXVheWdjZnp0YWJ0a25sIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MzA2ODY2OSwiZXhwIjoyMDc4NjQ0NjY5fQ.uAy4O9560idXOE6kAudCGYwC3K5ypPngZsbe7e3tWBA";
     const supabase = createClient(supabaseUrl!, serviceRoleKey!);
 
     const body = await req.json().catch(() => ({}));
@@ -257,63 +258,58 @@ serve(async (req: Request) => {
       status = pending?.status;
     }
 
-    if (!full_name || !email || status !== "pending") {
-      return new Response(JSON.stringify({ message: "Nothing to process" }), {
+    if (!full_name || !email) {
+      return new Response(JSON.stringify({ message: "Nothing to process - missing full_name or email" }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // 1) Search & fetch data
-    const search = await searchPersonInCompanyBook(full_name);
-    if (!search || !search.results?.length) {
+    console.log(`[users_pending_worker] Processing ${full_name} (${email})`);
+
+    // 1) Read from user_registry_checks (already populated by registry_check)
+    const { data: registryCheck, error: registryError } = await supabase
+      .from("user_registry_checks")
+      .select("*")
+      .eq("email", email)
+      .single();
+
+    if (registryError || !registryCheck) {
+      console.error(`[users_pending_worker] No registry check found for ${email}:`, registryError);
       await supabase.from("users_pending").update({ status: "no_match", updated_at: new Date().toISOString() }).eq("email", email);
-      return new Response(JSON.stringify({ status: "no_match" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ status: "no_match", message: "No registry check data found" }), { 
+        status: 200, 
+        headers: { ...corsHeaders, "Content-Type": "application/json" } 
+      });
     }
 
-    // Iterate through candidates until we find eligible companies
-    let person = null as any;
-    let personIdentifier = null as any;
-    let personDetails = null as any;
-    let ownership = null as any;
-    let companies: any[] = [];
+    // 2) Filter only ELIGIBLE companies (is_eligible_for_wallester: true, has english name, is_active)
+    const allCompanies = registryCheck.companies || [];
+    const eligibleCompanies = allCompanies.filter((c: any) => 
+      c.is_eligible_for_wallester === true && 
+      c.business_name_en && 
+      c.is_active === true
+    );
 
-    for (const candidate of search.results.slice(0, 5)) {
-      const pid = candidate.indent || candidate.identifier || candidate.id;
-      const own = await getOwnershipData(pid);
-      const compsAll = extractVerifiedBusinesses(own, pid);
-      const comps = sanitizeCompanies(compsAll).slice(0, 5);
-      if (comps.length > 0) {
-        person = candidate;
-        personIdentifier = pid;
-        ownership = own;
-        companies = comps;
-        personDetails = await getPersonDetails(pid);
-        break;
-      }
+    console.log(`[users_pending_worker] Found ${allCompanies.length} total companies, ${eligibleCompanies.length} eligible`);
+
+    if (eligibleCompanies.length === 0) {
+      console.log(`[users_pending_worker] No eligible companies for ${email}`);
+      await supabase.from("users_pending").update({ status: "no_valid_match", updated_at: new Date().toISOString() }).eq("email", email);
+      return new Response(JSON.stringify({ status: "no_valid_match", message: "No eligible companies found" }), { 
+        status: 200, 
+        headers: { ...corsHeaders, "Content-Type": "application/json" } 
+      });
     }
 
-    // If still none, fallback to first candidate's details (for logging/debug)
-    if (!person && search.results[0]) {
-      const pid = search.results[0].indent || search.results[0].identifier || search.results[0].id;
-      person = search.results[0];
-      personIdentifier = pid;
-      personDetails = await getPersonDetails(pid);
-      ownership = await getOwnershipData(pid);
-      companies = sanitizeCompanies(extractVerifiedBusinesses(ownership, pid)).slice(0, 5);
-    }
-
+    // 3) Prepare companies for verified_owners (max 5, only eligible)
+    const companies = eligibleCompanies.slice(0, 5);
     const topCompany = pickTopCompany(companies);
 
-    // Build slim companies list per rules (EOOD/ET + english name + active)
-    const companies_slim = await buildCompaniesSlim(companies);
-
-
-    // 3) Owner name split and birthdate
+    // 4) Owner name split (birthdate not available from registry_check)
     const { first: owner_first_name_en, last: owner_last_name_en } = parseName(full_name);
-    const owner_birthdate = personDetails?.birthDate || personDetails?.birthdate || null;
 
-    // 4) Upsert owner (without allocations first)
+    // 5) Upsert owner
     const fullNameKey = full_name.trim();
     const { data: existingOwner } = await supabase
       .from("verified_owners")
@@ -329,10 +325,9 @@ serve(async (req: Request) => {
           full_name: fullNameKey,
           owner_first_name_en,
           owner_last_name_en,
-          owner_birthdate,
-          companies,
+          owner_birthdate: null, // Not available from registry_check
+          companies, // JSONB array of eligible companies only
           top_company: topCompany || null,
-          companies_slim,
         })
         .select("id")
         .single();
@@ -344,10 +339,8 @@ serve(async (req: Request) => {
         .update({
           owner_first_name_en,
           owner_last_name_en,
-          owner_birthdate,
           companies,
           top_company: topCompany || null,
-          companies_slim,
           updated_at: new Date().toISOString(),
         })
         .eq("id", ownerId);
@@ -373,40 +366,11 @@ serve(async (req: Request) => {
       .eq("id", ownerId);
     if (ownerAllocErr) throw ownerAllocErr;
 
-    // 7) Determine final status based on results
-    let finalStatus = "no_match";
-    if (companies_slim.length > 0) {
-      finalStatus = "ready_for_stagehand";
-    } else if (companies.length > 0 && companies_slim.length === 0) {
-      // Found companies but none match criteria (no english name, inactive, etc)
-      finalStatus = "no_valid_match";
-    }
-
-    // 8) Write to user_registry_checks table (CRITICAL - tracks verification results)
-    const { error: registryCheckErr } = await supabase
-      .from("user_registry_checks")
-      .upsert({
-        email: email,
-        full_name: fullNameKey,
-        match_count: companies_slim.length,
-        any_match: companies_slim.length > 0,
-        companies: companies_slim,
-        status: companies_slim.length > 0 ? "completed" : "no_match",
-        checked_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }, {
-        onConflict: 'email'
-      });
-
-    if (registryCheckErr) {
-      console.error("⚠️ Failed to write to user_registry_checks:", registryCheckErr);
-      // Don't throw - continue with process
-    } else {
-      console.log(`✅ Written to user_registry_checks: ${companies_slim.length} matches for ${fullNameKey}`);
-    }
-
-    // 9) Update users_pending status
+    // 7) Update users_pending status
+    const finalStatus = "ready_for_stagehand"; // We only reach here if we have eligible companies
     await supabase.from("users_pending").update({ status: finalStatus, updated_at: new Date().toISOString() }).eq("email", email);
+
+    console.log(`[users_pending_worker] ✅ Successfully created verified_owner for ${fullNameKey} with ${companies.length} companies`);
 
     return new Response(JSON.stringify({
       status: "ok",
@@ -414,9 +378,9 @@ serve(async (req: Request) => {
       full_name: fullNameKey,
       owner_first_name_en,
       owner_last_name_en,
-      owner_birthdate,
+      owner_birthdate: null,
       top_company: topCompany,
-      companies,
+      companies_count: companies.length,
       allocated_phone_number: phoneAlloc?.number || null,
       email_alias_33mail: uniqueAlias,
     }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });

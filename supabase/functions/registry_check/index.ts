@@ -10,10 +10,14 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS"
 };
 
-// CompanyBook API base URL
-const COMPANYBOOK_API_BASE = "https://api.companybook.bg/api";
+// CompanyBook API base URL - use deployed Edge Function proxy
+const getCompanyBookBase = () => {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  return `${supabaseUrl}/functions/v1/companybook_proxy`;
+};
 
 async function searchPersonInCompanyBook(fullName: string) {
+  const COMPANYBOOK_API_BASE = getCompanyBookBase();
   const searchUrl = `${COMPANYBOOK_API_BASE}/people/search?name=${encodeURIComponent(fullName)}`;
   try {
     const response = await fetch(searchUrl, {
@@ -27,6 +31,7 @@ async function searchPersonInCompanyBook(fullName: string) {
 }
 
 async function getPersonDetails(identifier: string) {
+  const COMPANYBOOK_API_BASE = getCompanyBookBase();
   const detailsUrl = `${COMPANYBOOK_API_BASE}/people/${identifier}?with_data=true`;
   try {
     const response = await fetch(detailsUrl, {
@@ -40,6 +45,7 @@ async function getPersonDetails(identifier: string) {
 }
 
 async function getOwnershipData(identifier: string) {
+  const COMPANYBOOK_API_BASE = getCompanyBookBase();
   const ownershipUrl = `${COMPANYBOOK_API_BASE}/relationships/${identifier}?type=ownership&depth=2&include_historical=false`;
   try {
     const response = await fetch(ownershipUrl, {
@@ -53,6 +59,7 @@ async function getOwnershipData(identifier: string) {
 }
 
 async function getCompanyDetails(uic: string) {
+  const COMPANYBOOK_API_BASE = getCompanyBookBase();
   const companyUrl = `${COMPANYBOOK_API_BASE}/companies/${uic}?with_data=true`;
   try {
     const response = await fetch(companyUrl, {
@@ -133,7 +140,8 @@ serve(async (req: Request) => {
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    // TEMPORARY FIX: Hardcoded NEW service_role key (until Supabase Secrets are updated)
+    const serviceRoleKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFuc2lhaXVheWdjZnp0YWJ0a25sIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MzA2ODY2OSwiZXhwIjoyMDc4NjQ0NjY5fQ.uAy4O9560idXOE6kAudCGYwC3K5ypPngZsbe7e3tWBA";
     const supabase = createClient(supabaseUrl!, serviceRoleKey!);
 
     // Search
@@ -144,12 +152,33 @@ serve(async (req: Request) => {
       return new Response(JSON.stringify({ status: "ok", full_name, email, match_count: 0, any_match: false, companies: [], user_status: "no_match" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Accumulate companies from up to 5 candidates
+    // Helper function to normalize names for comparison (remove extra spaces, convert to lowercase)
+    function normalizeName(name: string): string {
+      if (!name) return '';
+      return name.trim().toLowerCase().replace(/\s+/g, ' ');
+    }
+
+    // Accumulate companies from up to 10 candidates (to handle common names like "Асен Митков Асенов")
+    // BUT only include candidates with EXACT name match
     const verifiedCompanies: any[] = [];
     let chosenPerson: any = null;
     let personIdentifier: string | null = null;
+    const searchNameNormalized = normalizeName(full_name);
 
-    for (const candidate of searchResults.results.slice(0, 5)) {
+    console.log(`[registry_check] Searching for exact match: "${full_name}"`);
+
+    for (const candidate of searchResults.results.slice(0, 10)) {
+      const candidateName = candidate.name || '';
+      const candidateNameNormalized = normalizeName(candidateName);
+      
+      // Skip if names don't match exactly
+      if (candidateNameNormalized !== searchNameNormalized) {
+        console.log(`[registry_check] Skipping candidate "${candidateName}" - name mismatch`);
+        continue;
+      }
+      
+      console.log(`[registry_check] Processing candidate "${candidateName}" - exact match ✓`);
+      
       const pid = candidate.indent || candidate.identifier || candidate.id;
       const ownershipData = await getOwnershipData(pid);
       const comps = extractVerifiedBusinesses(ownershipData, pid);
@@ -273,7 +302,9 @@ serve(async (req: Request) => {
     const matchCount = enrichedCompanies.length;
     const anyMatch = matchCount > 0;
 
-    await supabase.from("user_registry_checks").insert({
+    // Insert into user_registry_checks
+    console.log(`[registry_check] Inserting into user_registry_checks for ${email}`);
+    const { error: insertCheckError } = await supabase.from("user_registry_checks").insert({
       email,
       full_name,
       match_count: matchCount,
@@ -281,8 +312,92 @@ serve(async (req: Request) => {
       companies: enrichedCompanies
     });
 
+    if (insertCheckError) {
+      console.error(`[registry_check] Failed to insert user_registry_checks:`, insertCheckError);
+    } else {
+      console.log(`[registry_check] Successfully inserted user_registry_checks`);
+    }
+
+    // Update users_pending status
     const newStatus = anyMatch ? "ready_for_stagehand" : "no_match";
-    await supabase.from("users_pending").update({ status: newStatus, updated_at: new Date().toISOString() }).eq("email", email);
+    console.log(`[registry_check] Updating users_pending status to ${newStatus} for ${email}`);
+    const { error: updateError } = await supabase.from("users_pending").update({ 
+      status: newStatus, 
+      updated_at: new Date().toISOString() 
+    }).eq("email", email);
+
+    if (updateError) {
+      console.error(`[registry_check] Failed to update users_pending:`, updateError);
+    } else {
+      console.log(`[registry_check] Successfully updated users_pending status`);
+    }
+
+    // Trigger users_pending_worker if there are matches
+    if (anyMatch) {
+      console.log(`[registry_check] Triggering users_pending_worker for ${email}`);
+      try {
+        const workerPayload = {
+          row: {
+            full_name,
+            email,
+            status: newStatus
+          }
+        };
+        
+        // Call users_pending_worker Edge Function
+        const workerUrl = `${supabaseUrl}/functions/v1/users_pending_worker`;
+        const workerResponse = await fetch(workerUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${serviceRoleKey}`
+          },
+          body: JSON.stringify(workerPayload)
+        });
+        
+        if (!workerResponse.ok) {
+          const errorText = await workerResponse.text();
+          console.error(`[registry_check] users_pending_worker failed: ${workerResponse.status} - ${errorText}`);
+        } else {
+          const workerResult = await workerResponse.json();
+          console.log(`[registry_check] users_pending_worker completed successfully:`, workerResult);
+        }
+      } catch (workerError) {
+        console.error(`[registry_check] Error calling users_pending_worker:`, workerError);
+      }
+    }
+
+    // Send email notification
+    try {
+      console.log(`[registry_check] Sending email notification for ${email}`);
+      const emailPayload = {
+        userEmail: email,
+        fullName: full_name,
+        matchCount: matchCount,
+        anyMatch: anyMatch,
+        companies: enrichedCompanies
+      };
+      
+      const emailUrl = `${supabaseUrl}/functions/v1/send-registry-email`;
+      const emailResponse = await fetch(emailUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${serviceRoleKey}`
+        },
+        body: JSON.stringify(emailPayload)
+      });
+      
+      if (!emailResponse.ok) {
+        console.error(`[registry_check] send-registry-email failed: ${emailResponse.status}`);
+      } else {
+        console.log(`[registry_check] Email notification sent successfully`);
+      }
+    } catch (emailError) {
+      console.error(`[registry_check] Error sending email:`, emailError);
+    }
+
+    console.log(`[registry_check] Process completed for ${email}`);
 
     return new Response(JSON.stringify({
       status: "ok",

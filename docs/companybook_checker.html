@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CompanyBook Проверка - 3 Имена</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .search-section {
+            background: #f8f9fa;
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+        }
+
+        .search-section h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+        }
+
+        .name-inputs {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .input-group label {
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #333;
+            font-size: 1.1em;
+        }
+
+        .input-group input {
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 1.1em;
+            transition: all 0.3s;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .search-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 18px 40px;
+            font-size: 1.2em;
+            font-weight: 600;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            width: 100%;
+        }
+
+        .search-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        .search-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .results {
+            display: none;
+        }
+
+        .results.active {
+            display: block;
+        }
+
+        .person-result {
+            margin-bottom: 40px;
+            border: 2px solid #e0e0e0;
+            border-radius: 15px;
+            overflow: hidden;
+            background: white;
+        }
+
+        .person-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 30px;
+        }
+
+        .person-header h3 {
+            font-size: 1.8em;
+            margin-bottom: 5px;
+        }
+
+        .person-header .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: 600;
+            margin-top: 10px;
+        }
+
+        .status.success {
+            background: #4caf50;
+        }
+
+        .status.no-match {
+            background: #ff9800;
+        }
+
+        .status.error {
+            background: #f44336;
+        }
+
+        .person-body {
+            padding: 30px;
+        }
+
+        .summary {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .summary-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .summary-item:last-child {
+            border-bottom: none;
+        }
+
+        .summary-label {
+            font-weight: 600;
+            color: #555;
+        }
+
+        .summary-value {
+            color: #333;
+            font-weight: 500;
+        }
+
+        .companies-title {
+            font-size: 1.5em;
+            color: #667eea;
+            margin: 30px 0 20px 0;
+            font-weight: 600;
+        }
+
+        .accordion {
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            overflow: hidden;
+            background: white;
+        }
+
+        .accordion-header {
+            background: #f8f9fa;
+            padding: 20px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s;
+            user-select: none;
+        }
+
+        .accordion-header:hover {
+            background: #e9ecef;
+        }
+
+        .accordion-header.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .accordion-title {
+            font-size: 1.2em;
+            font-weight: 600;
+        }
+
+        .accordion-arrow {
+            font-size: 1.5em;
+            transition: transform 0.3s;
+        }
+
+        .accordion-header.active .accordion-arrow {
+            transform: rotate(180deg);
+        }
+
+        .accordion-body {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+
+        .accordion-body.active {
+            max-height: 1000px;
+        }
+
+        .accordion-content {
+            padding: 25px;
+            background: #fafafa;
+        }
+
+        .company-detail {
+            display: grid;
+            grid-template-columns: 200px 1fr;
+            gap: 15px;
+            padding: 12px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .company-detail:last-child {
+            border-bottom: none;
+        }
+
+        .detail-label {
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        .detail-value {
+            color: #333;
+        }
+
+        .no-companies {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+            font-size: 1.2em;
+        }
+
+        .error-message {
+            background: #ffebee;
+            color: #c62828;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border-left: 4px solid #c62828;
+        }
+
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+
+        .info-box h4 {
+            color: #1976d2;
+            margin-bottom: 10px;
+        }
+
+        .info-box ul {
+            margin-left: 20px;
+            color: #555;
+        }
+
+        .info-box li {
+            margin: 5px 0;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.8em;
+            }
+
+            .content {
+                padding: 20px;
+            }
+
+            .company-detail {
+                grid-template-columns: 1fr;
+                gap: 5px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 CompanyBook Проверка</h1>
+            <p>Проверете 3 имена едновременно за бизнес собственост в България</p>
+        </div>
+
+        <div class="content">
+            <div class="info-box">
+                <h4>ℹ️ Как работи системата:</h4>
+                <ul>
+                    <li>Въведете 3 имена (пълни имена на български)</li>
+                    <li>Системата търси всяко име в CompanyBook API</li>
+                    <li>Показва компании, където лицето е 100% собственик</li>
+                    <li>Филтрира само ЕООД/ЕТ с английско име и активен статус</li>
+                </ul>
+            </div>
+
+            <div class="search-section">
+                <h2>Въведете 3 имена за проверка</h2>
+                <div class="name-inputs">
+                    <div class="input-group">
+                        <label for="name1">Име 1:</label>
+                        <input type="text" id="name1" placeholder="напр. Даниел Миленов Мартинов">
+                    </div>
+                    <div class="input-group">
+                        <label for="name2">Име 2:</label>
+                        <input type="text" id="name2" placeholder="напр. Иван Петров Георгиев">
+                    </div>
+                    <div class="input-group">
+                        <label for="name3">Име 3:</label>
+                        <input type="text" id="name3" placeholder="напр. Мария Иванова Димитрова">
+                    </div>
+                </div>
+                <button class="search-button" onclick="searchAllNames()">
+                    🔍 Провери всички имена
+                </button>
+            </div>
+
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p style="font-size: 1.2em; color: #667eea;">Търсене в CompanyBook API...</p>
+                <p style="color: #999; margin-top: 10px;">Това може да отнеме няколко секунди</p>
+            </div>
+
+            <div class="results" id="results">
+                <!-- Results will be inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration - Use CompanyBook API directly (it's FREE!)
+        const API_BASE = 'https://api.companybook.bg/api';
+
+        // Toggle accordion
+        function toggleAccordion(element) {
+            const header = element;
+            const body = header.nextElementSibling;
+            
+            header.classList.toggle('active');
+            body.classList.toggle('active');
+        }
+
+        // Search for a single person
+        async function searchPerson(fullName) {
+            try {
+                // Step 1: Search for person
+                const searchUrl = `${API_BASE}/people/search?name=${encodeURIComponent(fullName)}`;
+                const searchResponse = await fetch(searchUrl, {
+                    headers: {
+                        'User-Agent': 'Mozilla/5.0',
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                if (!searchResponse.ok) {
+                    throw new Error(`HTTP error! status: ${searchResponse.status}`);
+                }
+                
+                const searchData = await searchResponse.json();
+                
+                if (!searchData.results || searchData.results.length === 0) {
+                    return {
+                        name: fullName,
+                        status: 'no-match',
+                        message: 'Няма намерени резултати в CompanyBook',
+                        companies: []
+                    };
+                }
+
+                // Get first result
+                const person = searchData.results[0];
+                const personId = person.indent || person.identifier || person.id;
+
+                // Step 2: Get ownership data using relationships endpoint
+                const ownershipUrl = `${API_BASE}/relationships/${personId}?type=ownership&depth=2`;
+                const ownershipResponse = await fetch(ownershipUrl, {
+                    headers: {
+                        'User-Agent': 'Mozilla/5.0',
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                if (!ownershipResponse.ok) {
+                    throw new Error('Failed to get ownership data');
+                }
+                
+                const ownershipData = await ownershipResponse.json();
+
+                // Step 3: Extract companies
+                const companies = [];
+                
+                if (ownershipData.relationships) {
+                    for (const rel of ownershipData.relationships) {
+                        const entity = rel.entity || {};
+                        const isActive = rel.isActive !== false;
+                        
+                        if (!isActive || entity.type !== 'company') continue;
+
+                        const rtype = rel.relationshipType || rel.type || '';
+                        const shareStr = rel?.metadata?.share || rel?.metadata?.percentage || null;
+                        const shareNum = typeof shareStr === 'string' ? parseFloat(shareStr.replace('%','')) : (typeof shareStr === 'number' ? shareStr : NaN);
+                        
+                        const isSole = rtype === 'SoleCapitalOwner' || (!isNaN(shareNum) && Math.round(shareNum) === 100);
+                        const isET = rtype === 'PhysicalPersonTrader';
+
+                        if (isSole || isET) {
+                            const eik = entity.id || entity.uic || null;
+                            
+                            if (eik) {
+                                // Step 4: Get company details
+                                try {
+                                    const companyUrl = `${API_BASE}/companies/${eik}?with_data=true`;
+                                    const companyResponse = await fetch(companyUrl, {
+                                        headers: {
+                                            'User-Agent': 'Mozilla/5.0',
+                                            'Accept': 'application/json'
+                                        }
+                                    });
+                                    
+                                    if (companyResponse.ok) {
+                                        const companyData = await companyResponse.json();
+                                        const comp = companyData.company || companyData || {};
+                                        
+                                        const lf = String(comp.legalForm || '').toLowerCase();
+                                        const isEOOD = lf.includes('еоод') || lf.includes('eood');
+                                        const isETLegal = lf.includes('ет') || lf.includes('et');
+                                        
+                                        if (!(isEOOD || isETLegal)) continue;
+                                        
+                                        const englishName = comp.companyNameTransliteration?.name || null;
+                                        if (!englishName) continue;
+                                        
+                                        const status = String(comp.status || '').toUpperCase();
+                                        const isActiveStatus = status === 'N' || status === 'E';
+                                        if (!isActiveStatus) continue;
+                                        
+                                        const seat = comp.seat || {};
+                                        
+                                        companies.push({
+                                            business_name_en: englishName,
+                                            business_name_bg: comp.name || entity.name || '',
+                                            eik: comp.uic || comp.eik || eik,
+                                            vat: comp.registerInfo?.vat || (eik ? `BG${eik}` : null),
+                                            entity_type: isEOOD ? 'EOOD' : 'ET',
+                                            legal_form: comp.legalForm || '',
+                                            status: comp.status || '',
+                                            city: seat.settlement || '',
+                                            region: seat.region || '',
+                                            country: seat.country || 'Bulgaria',
+                                            address: formatAddress(seat),
+                                            incorporation_date: comp.registerInfo?.dateOfIncorporation || ''
+                                        });
+                                    }
+                                } catch (err) {
+                                    console.error('Error fetching company:', err);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                return {
+                    name: fullName,
+                    status: companies.length > 0 ? 'success' : 'no-match',
+                    message: companies.length > 0 ? `Намерени ${companies.length} компании` : 'Няма валидни ЕООД/ЕТ с английско име',
+                    personData: person,
+                    companies: companies
+                };
+
+            } catch (error) {
+                console.error('Search error:', error);
+                return {
+                    name: fullName,
+                    status: 'error',
+                    message: `Грешка: ${error.message}`,
+                    companies: []
+                };
+            }
+        }
+
+        function formatAddress(seat) {
+            if (!seat) return '';
+            const parts = [];
+            if (seat.country) parts.push(seat.country);
+            if (seat.region) parts.push(seat.region);
+            if (seat.district) parts.push(seat.district);
+            if (seat.municipality) parts.push(seat.municipality);
+            if (seat.settlement) parts.push(seat.settlement);
+            if (seat.postCode) parts.push(seat.postCode);
+            return parts.join(', ');
+        }
+
+        // Search all three names
+        async function searchAllNames() {
+            const name1 = document.getElementById('name1').value.trim();
+            const name2 = document.getElementById('name2').value.trim();
+            const name3 = document.getElementById('name3').value.trim();
+
+            if (!name1 && !name2 && !name3) {
+                alert('Моля въведете поне едно име!');
+                return;
+            }
+
+            // Show loading
+            document.getElementById('loading').classList.add('active');
+            document.getElementById('results').classList.remove('active');
+            document.querySelector('.search-button').disabled = true;
+
+            // Search all names
+            const promises = [];
+            if (name1) promises.push(searchPerson(name1));
+            if (name2) promises.push(searchPerson(name2));
+            if (name3) promises.push(searchPerson(name3));
+
+            try {
+                const results = await Promise.all(promises);
+                displayResults(results);
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('results').innerHTML = `
+                    <div class="error-message">
+                        <strong>Грешка при търсене:</strong> ${error.message}
+                    </div>
+                `;
+                document.getElementById('results').classList.add('active');
+            } finally {
+                document.getElementById('loading').classList.remove('active');
+                document.querySelector('.search-button').disabled = false;
+            }
+        }
+
+        // Display results
+        function displayResults(results) {
+            const resultsDiv = document.getElementById('results');
+            let html = '';
+
+            results.forEach(result => {
+                const statusClass = result.status;
+                const statusText = result.status === 'success' ? '✅ Намерени компании' : 
+                                 result.status === 'no-match' ? '⚠️ Няма съвпадения' : 
+                                 '❌ Грешка';
+
+                html += `
+                    <div class="person-result">
+                        <div class="person-header">
+                            <h3>${result.name}</h3>
+                            <span class="status ${statusClass}">${statusText}</span>
+                        </div>
+                        <div class="person-body">
+                            <div class="summary">
+                                <div class="summary-item">
+                                    <span class="summary-label">Статус:</span>
+                                    <span class="summary-value">${result.message}</span>
+                                </div>
+                                <div class="summary-item">
+                                    <span class="summary-label">Намерени компании:</span>
+                                    <span class="summary-value">${result.companies.length}</span>
+                                </div>
+                            </div>
+
+                            ${result.companies.length > 0 ? `
+                                <h4 class="companies-title">📊 Компании (${result.companies.length})</h4>
+                                ${result.companies.map((company, idx) => `
+                                    <div class="accordion">
+                                        <div class="accordion-header" onclick="toggleAccordion(this)">
+                                            <div class="accordion-title">
+                                                ${idx + 1}. ${company.business_name_en} (${company.entity_type})
+                                            </div>
+                                            <div class="accordion-arrow">▼</div>
+                                        </div>
+                                        <div class="accordion-body">
+                                            <div class="accordion-content">
+                                                <div class="company-detail">
+                                                    <div class="detail-label">English Name:</div>
+                                                    <div class +"detail-value">${company.business_name_en}</div>
+                                                </div>
+                                                <div class="company-detail">
+                                                    <div class="detail-label">Име на български:</div>
+                                                    <div class="detail-value">${company.business_name_bg}</div>
+                                                </div>
+                                                <div class="company-detail">
+                                                    <div class="detail-label">ЕИК:</div>
+                                                    <div class="detail-value">${company.eik}</div>
+                                                </div>
+                                                <div class="company-detail">
+                                                    <div class="detail-label">VAT:</div>
+                                                    <div class="detail-value">${company.vat || 'N/A'}</div>
+                                                </div>
+                                                <div class="company-detail">
+                                                    <div class="detail-label">Тип:</div>
+                                                    <div class="detail-value">${company.entity_type}</div>
+                                                </div>
+                                                <div class="company-detail">
+                                                    <div class="detail-label">Правна форма:</div>
+                                                    <div class="detail-value">${company.legal_form}</div>
+                                                </div>
+                                                <div class="company-detail">
+                                                    <div class="detail-label">Статус:</div>
+                                                    <div class="detail-value">${company.status}</div>
+                                                </div>
+                                                <div class="company-detail">
+                                                    <div class="detail-label">Град:</div>
+                                                    <div class="detail-value">${company.city || 'N/A'}</div>
+                                                </div>
+                                                <div class="company-detail">
+                                                    <div class="detail-label">Регион:</div>
+                                                    <div class="detail-value">${company.region || 'N/A'}</div>
+                                                </div>
+                                                <div class="company-detail">
+                                                    <div class="detail-label">Адрес:</div>
+                                                    <div class="detail-value">${company.address || 'N/A'}</div>
+                                                </div>
+                                                <div class="company-detail">
+                                                    <div class="detail-label">Дата на регистрация:</div>
+                                                    <div class="detail-value">${company.incorporation_date || 'N/A'}</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            ` : `
+                                <div class="no-companies">
+                                    Няма намерени валидни компании с филтрите:<br>
+                                    • ЕООД или ЕТ<br>
+                                    • С английско име<br>
+                                    • Активен статус (N или E)<br>
+                                    • 100% собственост
+                                </div>
+                            `}
+                        </div>
+                    </div>
+                `;
+            });
+
+            resultsDiv.innerHTML = html;
+            resultsDiv.classList.add('active');
+        }
+
+        // Allow Enter key to trigger search
+        document.addEventListener('DOMContentLoaded', function() {
+            const inputs = [document.getElementById('name1'), document.getElementById('name2'), document.getElementById('name3')];
+            inputs.forEach(input => {
+                input.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        searchAllNames();
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
