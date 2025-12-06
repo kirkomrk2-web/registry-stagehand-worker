@@ -72,7 +72,8 @@ function formatAddress(seat: any): string | null {
   if (seat.municipality) parts.push(seat.municipality);
   if (seat.settlement) parts.push(seat.settlement);
   if (seat.postCode) parts.push(seat.postCode);
-  return parts.length ? parts.join(", ") : null;
+  // Use newlines for easier copying
+  return parts.length ? parts.join("\n") : null;
 }
 
 // Build slim companies list (EOOD/ET 100% only, with english name, active)
@@ -159,11 +160,51 @@ function extractVerifiedBusinesses(ownershipData: any, personId: string) {
 }
 
 // ---------- Utilities ----------
+// Cyrillic to Latin transliteration
+const CYRILLIC_TO_LATIN: Record<string, string> = {
+  'А': 'A', 'Б': 'B', 'В': 'V', 'Г': 'G', 'Д': 'D', 'Е': 'E', 'Ж': 'Zh', 'З': 'Z',
+  'И': 'I', 'Й': 'Y', 'К': 'K', 'Л': 'L', 'М': 'M', 'Н': 'N', 'О': 'O', 'П': 'P',
+  'Р': 'R', 'С': 'S', 'Т': 'T', 'У': 'U', 'Ф': 'F', 'Х': 'H', 'Ц': 'Ts', 'Ч': 'Ch',
+  'Ш': 'Sh', 'Щ': 'Sht', 'Ъ': 'A', 'Ь': 'Y', 'Ю': 'Yu', 'Я': 'Ya',
+  'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ж': 'zh', 'з': 'z',
+  'и': 'i', 'й': 'y', 'к': 'k', 'л': 'l', 'м': 'm', 'н': 'n', 'о': 'o', 'п': 'p',
+  'р': 'r', 'с': 's', 'т': 't', 'у': 'u', 'ф': 'f', 'х': 'h', 'ц': 'ts', 'ч': 'ch',
+  'ш': 'sh', 'щ': 'sht', 'ъ': 'a', 'ь': 'y', 'ю': 'yu', 'я': 'ya'
+};
+
+function transliterateCyrillicToLatin(text: string): string {
+  if (!text) return '';
+  let result = text.split('').map(char => CYRILLIC_TO_LATIN[char] || char).join('');
+  // Remove all types of quotes (ASCII and Unicode)
+  // U+0022 ("), U+0027 ('), U+00AB («), U+00BB (»), 
+  // U+201C ("), U+201D ("), U+201E („), U+201F (‟),
+  // U+2018 ('), U+2019 ('), U+2039 (‹), U+203A (›)
+  result = result.replace(/[\u0022\u0027\u00AB\u00BB\u201C\u201D\u201E\u201F\u2018\u2019\u2039\u203A]/g, '');
+  // Replace БЪЛГАРИЯ/BALGARIYa with Bulgaria
+  result = result.replace(/BALGARIYA|BALGARIYa|Bulgariya/gi, 'Bulgaria');
+  return result;
+}
+
 function parseName(fullName: string) {
   const parts = (fullName || "").trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return { first: null, last: null };
-  if (parts.length === 1) return { first: parts[0], last: null };
-  return { first: parts[0], last: parts.slice(1).join(" ") };
+  if (parts.length === 0) return { first: null, middle: null, last: null };
+  if (parts.length === 1) return { first: parts[0], middle: null, last: null };
+  if (parts.length === 2) return { first: parts[0], middle: null, last: parts[1] };
+  // For 3+ parts: first, middle, last
+  return { first: parts[0], middle: parts[1], last: parts[2] };
+}
+
+function formatDateToDDMMYYYY(isoDate: string): string {
+  if (!isoDate) return '';
+  try {
+    const date = new Date(isoDate);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}.${month}.${year}`;
+  } catch (_) {
+    return '';
+  }
 }
 
 function genAliasFromName(name: string) {
@@ -267,6 +308,16 @@ serve(async (req: Request) => {
 
     console.log(`[users_pending_worker] Processing ${full_name} (${email})`);
 
+    // 0) Get birthdate from users_pending table
+    const { data: userPending, error: userPendingError } = await supabase
+      .from("users_pending")
+      .select("birth_date")
+      .eq("email", email)
+      .single();
+    
+    const birthDate = userPending?.birth_date || null;
+    console.log(`[users_pending_worker] Birth date from users_pending: ${birthDate}`);
+
     // 1) Read from user_registry_checks (already populated by registry_check)
     const { data: registryCheck, error: registryError } = await supabase
       .from("user_registry_checks")
@@ -306,10 +357,46 @@ serve(async (req: Request) => {
     const companies = eligibleCompanies.slice(0, 5);
     const topCompany = pickTopCompany(companies);
 
-    // 4) Owner name split (birthdate not available from registry_check)
-    const { first: owner_first_name_en, last: owner_last_name_en } = parseName(full_name);
+    // 4) Parse and transliterate owner name
+    const { first, middle, last } = parseName(full_name);
+    const owner_first_name_en = transliterateCyrillicToLatin(first || '');
+    const owner_last_name_en = transliterateCyrillicToLatin(last || '');
+    
+    console.log(`[users_pending_worker] Owner names: ${first} -> ${owner_first_name_en}, ${last} -> ${owner_last_name_en}`);
 
-    // 5) Upsert owner
+    // 5) Build waiting_list structure for each company
+    const waiting_list = companies.map((company: any) => {
+      const details = company.details || {};
+      const comp = details.company || details || {};
+      const seat = comp.seat || {};
+      
+      // Format birthdate as dd.mm.yyyy only
+      const formattedBirthDate = birthDate ? formatDateToDDMMYYYY(birthDate) : '';
+      
+      // Transliterate address and street to Latin
+      const rawAddress = formatAddress(seat) || '';
+      const addressLatin = transliterateCyrillicToLatin(rawAddress);
+      
+      const rawStreet = `${seat.street || ''} ${seat.streetNumber || ''}`.trim();
+      const streetLatin = transliterateCyrillicToLatin(rawStreet);
+      
+      return {
+        business_name_en: company.business_name_en || '',
+        lastUpdated: formatDateToDDMMYYYY(comp.lastUpdated || ''),
+        EIK: company.eik || '',
+        VAT: company.eik ? `BG${company.eik}` : '',
+        subjectOfActivity: comp.subjectOfActivity || '',
+        address: addressLatin,
+        street: streetLatin,
+        owner_first_name_en,
+        owner_last_name_en,
+        owner_birthdate: formattedBirthDate
+      };
+    });
+
+    console.log(`[users_pending_worker] Built waiting_list with ${waiting_list.length} items`);
+
+    // 6) Upsert owner
     const fullNameKey = full_name.trim();
     const { data: existingOwner } = await supabase
       .from("verified_owners")
@@ -317,6 +404,9 @@ serve(async (req: Request) => {
       .eq("full_name", fullNameKey)
       .single();
 
+    // Keep birthdate in ISO format for database (Postgres requires this)
+    // Only format to dd.mm.yyyy in waiting_list
+    
     let ownerId = existingOwner?.id;
     if (!ownerId) {
       const { data: ins, error: insErr } = await supabase
@@ -325,9 +415,9 @@ serve(async (req: Request) => {
           full_name: fullNameKey,
           owner_first_name_en,
           owner_last_name_en,
-          owner_birthdate: null, // Not available from registry_check
-          companies, // JSONB array of eligible companies only
-          top_company: topCompany || null,
+          owner_birthdate: birthDate, // Keep ISO format
+          companies, // Keep original companies array for compatibility
+          waiting_list, // New structured waiting list
         })
         .select("id")
         .single();
@@ -339,8 +429,9 @@ serve(async (req: Request) => {
         .update({
           owner_first_name_en,
           owner_last_name_en,
+          owner_birthdate: birthDate, // Keep ISO format
           companies,
-          top_company: topCompany || null,
+          waiting_list,
           updated_at: new Date().toISOString(),
         })
         .eq("id", ownerId);
