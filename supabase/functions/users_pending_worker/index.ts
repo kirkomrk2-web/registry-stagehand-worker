@@ -373,8 +373,40 @@ serve(async (req: Request) => {
       .eq("id", ownerId);
     if (ownerAllocErr) throw ownerAllocErr;
 
-    // 7) Update users_pending status
-    await supabase.from("users_pending").update({ status: "ready_for_stagehand", updated_at: new Date().toISOString() }).eq("email", email);
+    // 7) Determine final status based on results
+    let finalStatus = "no_match";
+    if (companies_slim.length > 0) {
+      finalStatus = "ready_for_stagehand";
+    } else if (companies.length > 0 && companies_slim.length === 0) {
+      // Found companies but none match criteria (no english name, inactive, etc)
+      finalStatus = "no_valid_match";
+    }
+
+    // 8) Write to user_registry_checks table (CRITICAL - tracks verification results)
+    const { error: registryCheckErr } = await supabase
+      .from("user_registry_checks")
+      .upsert({
+        email: email,
+        full_name: fullNameKey,
+        match_count: companies_slim.length,
+        any_match: companies_slim.length > 0,
+        companies: companies_slim,
+        status: companies_slim.length > 0 ? "completed" : "no_match",
+        checked_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'email'
+      });
+
+    if (registryCheckErr) {
+      console.error("⚠️ Failed to write to user_registry_checks:", registryCheckErr);
+      // Don't throw - continue with process
+    } else {
+      console.log(`✅ Written to user_registry_checks: ${companies_slim.length} matches for ${fullNameKey}`);
+    }
+
+    // 9) Update users_pending status
+    await supabase.from("users_pending").update({ status: finalStatus, updated_at: new Date().toISOString() }).eq("email", email);
 
     return new Response(JSON.stringify({
       status: "ok",
