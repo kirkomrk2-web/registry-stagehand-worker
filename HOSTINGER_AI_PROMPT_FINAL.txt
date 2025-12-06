@@ -1,0 +1,200 @@
+═══════════════════════════════════════════════════════════════════
+  HOSTINGER HORIZON AI BUILDER - КОПИРАЙ ТОЗИ PROMPT
+═══════════════════════════════════════════════════════════════════
+
+Създай ми модерен административен dashboard за Wallester Automation System със следната структура:
+
+═══ HEADER (Горна част) ═══
+• Logo "Wallester Hub" отляво
+• Navigation menu с 4 tabs: Dashboard | Registry Check | Wallester Ops | SMS Monitor
+• Status indicator с зелена точка и text "Online"
+• User menu icon вдясно
+
+═══ MAIN DASHBOARD PAGE ═══
+
+1. СЕКЦИЯ: БЪРЗА ПРОВЕРКА (3 ИМЕНА)
+   • Headline: "🎯 Провери 3 имена наведнъж"
+   • 3 input fields подредени вертикално:
+     - Име 1: [text input]  [Check ✓ button]
+     - Име 2: [text input]  [Check ✓ button]  
+     - Име 3: [text input]  [Check ✓ button]
+   • 2 buttons отдолу:
+     - Primary button: "🔍 Провери всички"
+     - Secondary button: "📥 Export Results"
+   • White card с rounded corners и shadow
+
+2. СЕКЦИЯ: РЕЗУЛТАТИ
+   • Headline: "📊 Резултати от проверката"
+   • Results се показват като карти (cards):
+     Всяка карта има:
+     - Icon (✅ ако има компании, ❌ ако няма)
+     - Име на човека (bold, голям шрифт)
+     - Брой компании под името
+     - List на компаниите:
+       * Company name (BG)
+       * EIK номер в скоби
+       * Entity type badge (ЕООД/ЕТ)
+     - Contact info под компаниите:
+       * Телефон с 📞 icon
+       * Email с 📧 icon
+     - 2 action buttons:
+       * "👁️ View Details" (secondary)
+       * "💳 Create Wallester" (primary green)
+   • За no match: Show red card с "❌ Не са намерени компании"
+
+3. СЕКЦИЯ: PROXY STATUS
+   • Headline: "🔄 Proxy Rotation (Auto-rotate every 5 min)"
+   • Current proxy indicator:
+     - Text: "Current: Proxy #X (Country)"
+     - Horizontal health bar (зелена)
+     - Health percentage: "85%"
+   • List на всички proxies (4-5 proxies):
+     Всеки proxy показва:
+     - Proxy ID и country flag
+     - Horizontal progress bar:
+       * Зелена барка >70%
+       * Oранжева барка 40-70%
+       * Червена барка <40%
+     - Percentage number до барката
+     - Status text (Active/Idle/Error)
+   • Countdown timer: "Next rotation in: 3m 45s"
+   • 2 action buttons:
+     - "🔄 Rotate Now" (primary)
+     - "❌ Recover Failed" (secondary)
+
+4. СЕКЦИЯ: WALLESTER OPERATIONS
+   • Headline: "💳 Wallester Operations - Active"
+   • Show count: "Active Operations: X"
+   • Operation cards:
+     Всяка карта показва:
+     - Icon (🔄 за in progress, ✅ за complete)
+     - Име на човека
+     - Status text под името
+     - Step indicator: "Step 2/5"
+     - Progress bar със percentage
+     - Checklist на steps с icons (✓ done, ⏳ pending)
+     - Timestamp: "Started 5m ago"
+   • Empty state: "No active operations" с icon
+
+5. СЕКЦИЯ: SMS/EMAIL CODES (LIVE)
+   • Headline: "📱 SMS/Email Codes - Live Feed"
+   • Live list на codes (последните 10):
+     Всеки code има:
+     - Icon (📱 за SMS, 📧 за email)
+     - Recipient (phone или email)
+     - Code (bold, larger text)
+     - Source (от кого е: Wallester, Verification, etc.)
+     - Time ago: "2m ago"
+     - 2 action buttons:
+       * "📋 Copy" (copy code to clipboard)
+       * "✓ Mark Used" (mark as used)
+   • Auto-scroll на новите codes
+   • Badge "🆕 NEW" на последния code
+   • Sound notification при нов code (optional)
+
+6. СЕКЦИЯ: СТАТИСТИКИ (24h)
+   • Headline: "📊 Statistics - Last 24 hours"
+   • 4 stat boxes подредени horizontal:
+     Box 1: Total Checks (големо число + icon)
+     Box 2: Valid Owners (зелено число + %)
+     Box 3: Wallester Accounts (count + icon)
+     Box 4: Success Rate (percentage + trend arrow)
+   • Всеки box:
+     - Large number at top
+     - Small label под number
+     - Icon или trend indicator
+     - Light colored background
+
+═══ DESIGN SPECIFICATIONS ═══
+
+COLOR SCHEME:
+• Primary: #6366f1 (Indigo)
+• Success: #10b981 (Green)  
+• Warning: #f59e0b (Orange)
+• Danger: #ef4444 (Red)
+• Neutral: #6b7280 (Gray)
+• Background: #f9fafb (Light gray)
+• White: #ffffff
+
+TYPOGRAPHY:
+• Font: Inter (from Google Fonts)
+• Headers: Inter Bold, 24-32px
+• Body text: Inter Regular, 14-16px
+• Small text: Inter Regular, 12-14px
+
+LAYOUT:
+• Max width: 1400px
+• Container padding: 20-40px
+• Card spacing: 20px gap
+• Rounded corners: 8-12px
+• Box shadows: subtle (0 1px 3px rgba(0,0,0,0.1))
+
+COMPONENTS:
+• Cards: White background, rounded, shadow, padding 24px
+• Buttons:
+  - Primary: Indigo bg, white text, bold
+  - Secondary: White bg, gray border, gray text
+  - Hover: Slightly darker shade
+• Progress bars:
+  - Height: 8-12px
+  - Rounded corners
+  - Gradient from green to indigo
+  - Smooth animation (transition 0.3s)
+• Status indicators:
+  - Small circles for online/offline
+  - Pulse animation for activity
+  - Colors: green (online), orange (warning), red (offline)
+
+INTERACTIONS:
+• Hover effects на всички buttons и cards
+• Loading spinners when checking names
+• Smooth fade-in animations за results
+• Toast notifications за success/error messages
+• Copy to clipboard functionality
+• Auto-refresh every 5-10 seconds for live data
+
+RESPONSIVE:
+• Desktop: 3-column grid за някои секции
+• Tablet: 2-column grid
+• Mobile: Single column, stacked cards
+• Burger menu за navigation на mobile
+
+ICONS:
+• Use Lucide Icons или Heroicons
+• Consistent icon style (outline style)
+• Icon size: 20-24px за buttons, 16px за small elements
+
+═══ ADDITIONAL FEATURES ═══
+
+• Dark mode toggle (optional, в header)
+• Search/filter за results и operations
+• Export data to CSV/JSON
+• Print-friendly layout
+• Keyboard shortcuts hint (? key)
+• Empty states за всички lists
+• Error state handling (pokazva friendly message)
+• Loading skeletons while data loads
+
+═══ EXAMPLE ANIMATION ═══
+
+• Fade in на results cards (stagger effect)
+• Progress bars animate from 0 to current value
+• New SMS codes slide in from top
+• Status badges pulse при activity
+• Hover scale (1.02) на cards
+• Button ripple effect при click
+
+═══ TECHNICAL NOTES ═══
+
+• Use CSS Grid за layout
+• Use Flexbox за card interiors
+• Smooth scroll behavior
+• Optimize за performance (lazy load images)
+• Accessibility: ARIA labels, keyboard navigation
+• Mobile touch-friendly (larger tap targets)
+
+═══════════════════════════════════════════════════════════════════
+
+КРАЙ НА PROMPT - COPY/PASTE В HOSTINGER HORIZON AI BUILDER
+
+═══════════════════════════════════════════════════════════════════

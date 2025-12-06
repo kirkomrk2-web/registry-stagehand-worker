@@ -4,8 +4,11 @@
   "type": "module",
   "main": "worker.mjs",
   "scripts": {
-    "start": "node worker.mjs",
-    "dev": "node worker.mjs"
+    "start": "node server/companybook_proxy.mjs",
+    "start:worker": "node worker.mjs",
+    "start:proxy": "node server/companybook_proxy.mjs",
+    "dev": "node worker.mjs",
+    "dev:proxy": "node server/companybook_proxy.mjs"
   },
   "dependencies": {
     "@browserbasehq/sdk": "^2.6.0",

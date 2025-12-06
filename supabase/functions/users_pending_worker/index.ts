@@ -10,8 +10,13 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS"
 };
 
-// CompanyBook API base URL
-const COMPANYBOOK_API_BASE = "https://api.companybook.bg/api";
+// CompanyBook API - Use proxy if available (required for cloud deployment)
+// Set COMPANYBOOK_PROXY env var to point to deployed proxy server
+// Example: https://your-proxy.railway.app or http://your-vps-ip:4321
+const COMPANYBOOK_PROXY = Deno.env.get("COMPANYBOOK_PROXY");
+const COMPANYBOOK_API_BASE = COMPANYBOOK_PROXY || "https://api.companybook.bg/api";
+
+console.log(`[users_pending_worker] Using CompanyBook API: ${COMPANYBOOK_PROXY ? 'PROXY' : 'DIRECT'} - ${COMPANYBOOK_API_BASE}`);
 
 // ---------- CompanyBook helpers ----------
 async function searchPersonInCompanyBook(fullName: string) {
@@ -38,6 +43,17 @@ async function getPersonDetails(identifier: string) {
 
 async function getOwnershipData(identifier: string) {
   const url = `${COMPANYBOOK_API_BASE}/relationships/${identifier}?type=ownership&depth=2&include_historical=false`;
+  try {
+    const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0", "Accept": "application/json" } });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (_) {
+    return null;
+  }
+}
+
+async function getCompanyDetails(uic: string) {
+  const url = `${COMPANYBOOK_API_BASE}/companies/${uic}?with_data=true`;
   try {
     const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0", "Accept": "application/json" } });
     if (!res.ok) return null;
@@ -374,6 +390,30 @@ serve(async (req: Request) => {
     }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err: any) {
     console.error("users_pending_worker error:", err);
-    return new Response(JSON.stringify({ error: err?.message || "Unknown error" }), { status: 500, headers: corsHeaders });
+    
+    // Try to update users_pending status to error if we have the email
+    try {
+      const body = await req.clone().json().catch(() => ({}));
+      const row = body?.row || body || {};
+      const email = row?.email;
+      
+      if (email) {
+        const supabaseUrl = Deno.env.get("SUPABASE_URL") || Deno.env.get("PROJECT_URL") || Deno.env.get("URL");
+        const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SERVICE_ROLE_KEY") || Deno.env.get("SERVICE_ROLE");
+        const supabase = createClient(supabaseUrl!, serviceRoleKey!);
+        
+        await supabase.from("users_pending").update({ 
+          status: "error",
+          updated_at: new Date().toISOString() 
+        }).eq("email", email);
+      }
+    } catch (updateErr) {
+      console.error("Failed to update error status:", updateErr);
+    }
+    
+    return new Response(JSON.stringify({ error: err?.message || "Unknown error", stack: err?.stack }), { 
+      status: 500, 
+      headers: { ...corsHeaders, "Content-Type": "application/json" } 
+    });
   }
 });
