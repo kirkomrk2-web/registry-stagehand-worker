@@ -50,8 +50,8 @@
 
         .input-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
+            grid-template-columns: 1fr;
+            gap: 15px;
             margin-bottom: 20px;
         }
 
@@ -67,18 +67,30 @@
             font-size: 0.95rem;
         }
 
-        .input-group input {
+        .input-group input, .input-group textarea {
             padding: 12px 15px;
             border: 2px solid #e0e0e0;
             border-radius: 8px;
             font-size: 1rem;
+            font-family: inherit;
             transition: all 0.3s;
         }
 
-        .input-group input:focus {
+        .input-group textarea {
+            min-height: 150px;
+            resize: vertical;
+        }
+
+        .input-group input:focus, .input-group textarea:focus {
             outline: none;
             border-color: #667eea;
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .input-hint {
+            font-size: 0.85rem;
+            color: #666;
+            margin-top: 5px;
         }
 
         .button-group {
@@ -109,6 +121,12 @@
             box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
         }
 
+        .btn-search:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
         .btn-clear {
             background: #f0f0f0;
             color: #333;
@@ -121,13 +139,48 @@
         .loading {
             text-align: center;
             padding: 40px;
-            color: white;
-            font-size: 1.2rem;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
             display: none;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            color: #333;
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+        }
+
+        .loading-progress {
+            color: #666;
+            font-size: 0.95rem;
         }
 
         .results-section {
             display: none;
+        }
+
+        .results-section.show {
+            display: block;
         }
 
         .owner-card {
@@ -174,6 +227,7 @@
             justify-content: center;
             font-size: 1.5rem;
             font-weight: bold;
+            flex-shrink: 0;
         }
 
         .owner-name h2 {
@@ -296,6 +350,7 @@
             font-size: 1rem;
             color: #333;
             word-break: break-word;
+            white-space: pre-line;
         }
 
         .no-results {
@@ -345,7 +400,7 @@
     <div class="container">
         <div class="header">
             <h1>🏢 Verified Owners Viewer</h1>
-            <p>Проверка на Wallester данни за собственици и фирми</p>
+            <p>Визуализация на Wallester данни за собственици и фирми</p>
         </div>
 
         <div class="input-section">
@@ -356,35 +411,33 @@
 
             <div class="input-grid">
                 <div class="input-group">
-                    <label for="name1">Име 1:</label>
-                    <input type="text" id="name1" placeholder="Иван Иванов Иванов">
-                </div>
-                <div class="input-group">
-                    <label for="name2">Име 2:</label>
-                    <input type="text" id="name2" placeholder="Петър Петров Петров">
-                </div>
-                <div class="input-group">
-                    <label for="name3">Име 3:</label>
-                    <input type="text" id="name3" placeholder="Мария Маринова Маринова">
+                    <label for="names">Имена за търсене (всяко на нов ред):</label>
+                    <textarea id="names" placeholder="Асен Митков Асенов&#10;Божидар Ангелов Борисов&#10;Тодор Йорданов Тодоров"></textarea>
+                    <div class="input-hint">💡 Въведете пълни имена, всяко на отделен ред. Максимум 10 имена наведнъж.</div>
                 </div>
             </div>
 
             <div class="button-group">
-                <button class="btn-search" onclick="searchOwners()">🔍 Търси</button>
+                <button class="btn-search" id="searchBtn" onclick="searchOwners()">🔍 Търси</button>
                 <button class="btn-clear" onclick="clearForm()">🗑️ Изчисти</button>
             </div>
         </div>
 
         <div class="loading" id="loading">
-            ⏳ Зареждане на данни...
+            <div class="loading-spinner"></div>
+            <div class="loading-text">⏳ Зареждане на данни...</div>
+            <div class="loading-progress" id="loadingProgress">Обработка на име 0 от 0</div>
         </div>
 
         <div class="results-section" id="results"></div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
         const SUPABASE_URL = 'https://ansiaiuaygcfztabtknl.supabase.co';
         const SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFuc2lhaXVheWdjZnp0YWJ0a25sIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MzA2ODY2OSwiZXhwIjoyMDc4NjQ0NjY5fQ.uAy4O9560idXOE6kAudCGYwC3K5ypPngZsbe7e3tWBA';
+
+        const supabase = window.supabase.createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
         function showError(message) {
             const errorDiv = document.getElementById('errorMessage');
@@ -397,65 +450,70 @@
         }
 
         async function searchOwners() {
-            const name1 = document.getElementById('name1').value.trim();
-            const name2 = document.getElementById('name2').value.trim();
-            const name3 = document.getElementById('name3').value.trim();
-
-            const names = [name1, name2, name3].filter(n => n);
+            const namesText = document.getElementById('names').value.trim();
+            const names = namesText.split('\n').map(n => n.trim()).filter(n => n);
 
             if (names.length === 0) {
                 showError('Моля, въведете поне едно име за търсене.');
                 return;
             }
 
+            if (names.length > 10) {
+                showError('Максимум 10 имена наведнъж.');
+                return;
+            }
+
             const loading = document.getElementById('loading');
             const results = document.getElementById('results');
+            const searchBtn = document.getElementById('searchBtn');
+            const loadingProgress = document.getElementById('loadingProgress');
             
-            loading.style.display = 'block';
-            results.style.display = 'none';
+            loading.classList.add('show');
+            results.classList.remove('show');
             results.innerHTML = '';
+            searchBtn.disabled = true;
 
             try {
                 const owners = [];
                 
-                for (const name of names) {
-                    const response = await fetch(`${SUPABASE_URL}/rest/v1/verified_owners?full_name=eq.${encodeURIComponent(name)}&select=*`, {
-                        headers: {
-                            'apikey': SERVICE_ROLE_KEY,
-                            'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
-                            'Content-Type': 'application/json',
-                            'Prefer': 'return=representation'
-                        }
-                    });
+                for (let i = 0; i < names.length; i++) {
+                    const name = names[i];
+                    loadingProgress.textContent = `Обработка на име ${i + 1} от ${names.length}: ${name}`;
+                    
+                    const { data, error } = await supabase
+                        .from('verified_owners')
+                        .select('*')
+                        .eq('full_name', name)
+                        .single();
 
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
+                    if (!error && data) {
+                        owners.push(data);
                     }
-
-                    const data = await response.json();
-                    if (data && data.length > 0) {
-                        owners.push(data[0]);
-                    }
+                    
+                    // Small delay between requests
+                    await new Promise(r => setTimeout(r, 200));
                 }
 
-                loading.style.display = 'none';
+                loading.classList.remove('show');
+                searchBtn.disabled = false;
 
                 if (owners.length === 0) {
                     results.innerHTML = `
                         <div class="no-results">
                             <h3>😕 Няма намерени резултати</h3>
-                            <p>Не са намерени собственици с въведените имена.</p>
+                            <p>Не са намерени собственици с въведените имена. Уверете се, че имената са точни.</p>
                         </div>
                     `;
-                    results.style.display = 'block';
+                    results.classList.add('show');
                     return;
                 }
 
                 results.innerHTML = owners.map((owner, index) => renderOwnerCard(owner, index + 1)).join('');
-                results.style.display = 'block';
+                results.classList.add('show');
 
             } catch (error) {
-                loading.style.display = 'none';
+                loading.classList.remove('show');
+                searchBtn.disabled = false;
                 showError('Грешка при извличане на данни: ' + error.message);
                 console.error('Error:', error);
             }
@@ -524,19 +582,19 @@
                         </div>
                         <div class="company-field">
                             <div class="field-label">Последна актуализация</div>
-                            <div class="field-value">${company.lastUpdated}</div>
+                            <div class="field-value">${company.lastUpdated || '-'}</div>
                         </div>
                         <div class="company-field">
                             <div class="field-label">Улица</div>
-                            <div class="field-value">${company.street}</div>
+                            <div class="field-value">${company.street || '-'}</div>
                         </div>
                         <div class="company-field">
                             <div class="field-label">Адрес</div>
-                            <div class="field-value">${company.address}</div>
+                            <div class="field-value">${company.address || '-'}</div>
                         </div>
                         <div class="company-field">
                             <div class="field-label">Предмет на дейност</div>
-                            <div class="field-value">${company.subjectOfActivity}</div>
+                            <div class="field-value">${company.subjectOfActivity || '-'}</div>
                         </div>
                         <div class="company-field">
                             <div class="field-label">Собственик (EN)</div>
@@ -544,7 +602,7 @@
                         </div>
                         <div class="company-field">
                             <div class="field-label">Рождена дата</div>
-                            <div class="field-value">${company.owner_birthdate}</div>
+                            <div class="field-value">${company.owner_birthdate || '-'}</div>
                         </div>
                     </div>
                 </div>
@@ -552,20 +610,26 @@
         }
 
         function clearForm() {
-            document.getElementById('name1').value = '';
-            document.getElementById('name2').value = '';
-            document.getElementById('name3').value = '';
-            document.getElementById('results').style.display = 'none';
+            document.getElementById('names').value = '';
+            document.getElementById('results').classList.remove('show');
             document.getElementById('results').innerHTML = '';
         }
 
-        // Enter key support
-        document.querySelectorAll('input').forEach(input => {
-            input.addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    searchOwners();
-                }
-            });
+        // Enter key support (Ctrl+Enter to search)
+        document.getElementById('names').addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.key === 'Enter') {
+                searchOwners();
+            }
+        });
+
+        // Load sample names on page load (optional)
+        window.addEventListener('load', function() {
+            const sampleNames = [
+                'Асен Митков Асенов',
+                'Божидар Ангелов Борисов',
+                'Тодор Йорданов Тодоров'
+            ].join('\n');
+            document.getElementById('names').placeholder = sampleNames;
         });
     </script>
 </body>
