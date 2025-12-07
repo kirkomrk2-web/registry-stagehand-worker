@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Проверка на Wallester данни - До 3 имена</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .limit-badge {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 8px 20px;
+            border-radius: 20px;
+            display: inline-block;
+            margin-top: 10px;
+            font-weight: 600;
+        }
+
+        .input-section {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            margin-bottom: 30px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-group label {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 1rem;
+            display: block;
+        }
+
+        .input-group textarea {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-family: inherit;
+            transition: all 0.3s;
+            min-height: 120px;
+            resize: vertical;
+        }
+
+        .input-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .input-hint {
+            font-size: 0.9rem;
+            color: #666;
+            margin-top: 8px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border-left: 4px solid #667eea;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        button {
+            padding: 15px 40px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-search {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-search:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-search:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .btn-clear {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .btn-clear:hover {
+            background: #e0e0e0;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            display: none;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .loading-spinner {
+            width: 60px;
+            height: 60px;
+            border: 6px solid #f3f3f3;
+            border-top: 6px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            color: #333;
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .loading-progress {
+            color: #666;
+            font-size: 1rem;
+        }
+
+        .results-section {
+            display: none;
+        }
+
+        .results-section.show {
+            display: block;
+        }
+
+        .owner-card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            animation: slideIn 0.5s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .owner-header {
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 20px;
+            margin-bottom: 25px;
+        }
+
+        .owner-name {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .owner-number {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+
+        .owner-name h2 {
+            font-size: 1.8rem;
+            color: #333;
+        }
+
+        .owner-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 25px;
+        }
+
+        .detail-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .detail-label {
+            font-size: 0.85rem;
+            color: #666;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 5px;
+        }
+
+        .detail-value {
+            font-size: 1.1rem;
+            color: #333;
+            font-weight: 500;
+        }
+
+        .companies-section h3 {
+            font-size: 1.4rem;
+            color: #333;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .company-count {
+            background: #667eea;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+        }
+
+        .company-item {
+            background: #ffffff;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 15px;
+            transition: all 0.3s;
+        }
+
+        .company-item:hover {
+            border-color: #667eea;
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.2);
+            transform: translateX(5px);
+        }
+
+        .company-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .company-number {
+            background: #667eea;
+            color: white;
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+
+        .company-name {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #333;
+            flex: 1;
+        }
+
+        .company-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+
+        .company-field {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .field-label {
+            font-size: 0.8rem;
+            color: #666;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            margin-bottom: 5px;
+        }
+
+        .field-value {
+            font-size: 1rem;
+            color: #333;
+            word-break: break-word;
+            white-space: pre-line;
+        }
+
+        .no-results {
+            background: white;
+            border-radius: 15px;
+            padding: 60px 30px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .no-results-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+        }
+
+        .no-results h3 {
+            font-size: 1.8rem;
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .no-results p {
+            font-size: 1.1rem;
+            color: #666;
+        }
+
+        .error-message {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        .error-title {
+            font-weight: 600;
+            color: #856404;
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+        }
+
+        .error-text {
+            color: #856404;
+        }
+
+        .footer {
+            text-align: center;
+            color: white;
+            margin-top: 40px;
+            opacity: 0.8;
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.8rem;
+            }
+            
+            .owner-details,
+            .company-details {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏢 Wallester Проверка</h1>
+            <p>Визуализация на регистрирани собственици и фирми</p>
+            <div class="limit-badge">📊 Лимит: До 3 имена наведнъж</div>
+        </div>
+
+        <div class="input-section">
+            <div class="error-message" id="errorMessage">
+                <div class="error-title">⚠️ Грешка</div>
+                <div class="error-text" id="errorText"></div>
+            </div>
+
+            <div class="input-group">
+                <label for="names">✍️ Въведете до 3 имена (всяко на нов ред):</label>
+                <textarea 
+                    id="names" 
+                    placeholder="Асен Митков Асенов&#10;Божидар Ангелов Борисов&#10;Тодор Йорданов Тодоров"
+                    maxlength="500"
+                ></textarea>
+                <div class="input-hint">
+                    💡 <strong>Инструкции:</strong> Въведете пълни имена (собствено, бащино, фамилно), всяко на отделен ред. 
+                    Системата открива максимум <strong>3 имена</strong> наведнъж.
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button class="btn-search" id="searchBtn" onclick="searchOwners()">
+                    🔍 Търси данни
+                </button>
+                <button class="btn-clear" onclick="clearForm()">
+                    🗑️ Изчисти
+                </button>
+            </div>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">⏳ Зареждане на данни...</div>
+            <div class="loading-progress" id="loadingProgress">Обработка на име 0 от 0</div>
+        </div>
+
+        <div class="results-section" id="results"></div>
+
+        <div class="footer">
+            © 2025 Wallester Data Viewer | Made with ❤️
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        // ПУБЛИЧЕН ANON KEY (безопасен за споделяне)
+        const SUPABASE_URL = 'https://ansiaiuaygcfztabtknl.supabase.co';
+        const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFuc2lhaXVheWdjZnp0YWJ0a25sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMwNjg2NjksImV4cCI6MjA3ODY0NDY2OX0.F8vWALnVBpRLDLfJWFZuBMZBTNRuBT_oZPo9ynw-sWs';
+
+        const supabase = window.supabase.createClient(SUPABASE_URL, ANON_KEY);
+
+        const MAX_NAMES = 3;
+
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            const errorText = document.getElementById('errorText');
+            errorText.textContent = message;
+            errorDiv.classList.add('show');
+            
+            setTimeout(() => {
+                errorDiv.classList.remove('show');
+            }, 6000);
+        }
+
+        async function searchOwners() {
+            const namesText = document.getElementById('names').value.trim();
+            const names = namesText.split('\n')
+                .map(n => n.trim())
+                .filter(n => n);
+
+            // Validation
+            if (names.length === 0) {
+                showError('❌ Моля, въведете поне едно име за търсене.');
+                return;
+            }
+
+            if (names.length > MAX_NAMES) {
+                showError(`❌ Максимум ${MAX_NAMES} имена наведнъж. Въвели сте ${names.length} имена.`);
+                return;
+            }
+
+            // UI elements
+            const loading = document.getElementById('loading');
+            const results = document.getElementById('results');
+            const searchBtn = document.getElementById('searchBtn');
+            const loadingProgress = document.getElementById('loadingProgress');
+            
+            // Show loading
+            loading.classList.add('show');
+            results.classList.remove('show');
+            results.innerHTML = '';
+            searchBtn.disabled = true;
+
+            try {
+                const owners = [];
+                
+                // Search for each name
+                for (let i = 0; i < names.length; i++) {
+                    const name = names[i];
+                    loadingProgress.textContent = `Обработка на име ${i + 1} от ${names.length}: ${name}`;
+                    
+                    const { data, error } = await supabase
+                        .from('verified_owners')
+                        .select('*')
+                        .eq('full_name', name)
+                        .maybeSingle();
+
+                    if (error) {
+                        console.error('Supabase error:', error);
+                        // Continue with other names
+                    } else if (data) {
+                        owners.push(data);
+                    }
+                    
+                    // Small delay between requests (politeness)
+                    if (i < names.length - 1) {
+                        await new Promise(r => setTimeout(r, 300));
+                    }
+                }
+
+                // Hide loading
+                loading.classList.remove('show');
+                searchBtn.disabled = false;
+
+                // Display results
+                if (owners.length === 0) {
+                    results.innerHTML = `
+                        <div class="no-results">
+                            <div class="no-results-icon">🔍</div>
+                            <h3>Няма намерени резултати</h3>
+                            <p>Не са намерени собственици с въведените имена.<br>
+                            Моля, проверете дали имената са точни и опитайте отново.</p>
+                        </div>
+                    `;
+                    results.classList.add('show');
+                    return;
+                }
+
+                // Render owner cards
+                results.innerHTML = owners.map((owner, index) => 
+                    renderOwnerCard(owner, index + 1)
+                ).join('');
+                results.classList.add('show');
+
+                // Success message
+                console.log(`✅ Намерени ${owners.length} от ${names.length} имена`);
+
+            } catch (error) {
+                loading.classList.remove('show');
+                searchBtn.disabled = false;
+                showError('🚫 Грешка при свързване: ' + error.message);
+                console.error('Error:', error);
+            }
+        }
+
+        function renderOwnerCard(owner, ownerNumber) {
+            const waitingList = owner.waiting_list || [];
+            
+            return `
+                <div class="owner-card">
+                    <div class="owner-header">
+                        <div class="owner-name">
+                            <div class="owner-number">${ownerNumber}</div>
+                            <h2>${escapeHtml(owner.full_name)}</h2>
+                        </div>
+                        <div class="owner-details">
+                            <div class="detail-item">
+                                <div class="detail-label">Собствено име (EN)</div>
+                                <div class="detail-value">${escapeHtml(owner.owner_first_name_en) || '-'}</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Фамилно име (EN)</div>
+                                <div class="detail-value">${escapeHtml(owner.owner_last_name_en) || '-'}</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Рождена дата</div>
+                                <div class="detail-value">${escapeHtml(owner.owner_birthdate) || '-'}</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Email Alias</div>
+                                <div class="detail-value">${escapeHtml(owner.email_alias_33mail) || '-'}</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Телефон</div>
+                                <div class="detail-value">${escapeHtml(owner.allocated_phone_number) || '-'}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="companies-section">
+                        <h3>
+                            🏢 Фирми в чакалния списък
+                            <span class="company-count">${waitingList.length}</span>
+                        </h3>
+                        ${waitingList.length === 0 
+                            ? '<p style="color: #666; padding: 20px;">Няма налични фирми в чакалния списък.</p>' 
+                            : waitingList.map((company, idx) => renderCompany(company, idx + 1)).join('')
+                        }
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderCompany(company, companyNumber) {
+            return `
+                <div class="company-item">
+                    <div class="company-header">
+                        <div class="company-number">${companyNumber}</div>
+                        <div class="company-name">${escapeHtml(company.business_name_en)}</div>
+                    </div>
+                    <div class="company-details">
+                        <div class="company-field">
+                            <div class="field-label">ЕИК</div>
+                            <div class="field-value">${escapeHtml(company.EIK)}</div>
+                        </div>
+                        <div class="company-field">
+                            <div class="field-label">VAT номер</div>
+                            <div class="field-value">${escapeHtml(company.VAT)}</div>
+                        </div>
+                        <div class="company-field">
+                            <div class="field-label">Последна актуализация</div>
+                            <div class="field-value">${escapeHtml(company.lastUpdated) || '-'}</div>
+                        </div>
+                        <div class="company-field">
+                            <div class="field-label">Улица</div>
+                            <div class="field-value">${escapeHtml(company.street) || '-'}</div>
+                        </div>
+                        <div class="company-field">
+                            <div class="field-label">Пълен адрес</div>
+                            <div class="field-value">${escapeHtml(company.address) || '-'}</div>
+                        </div>
+                        <div class="company-field">
+                            <div class="field-label">Предмет на дейност</div>
+                            <div class="field-value">${escapeHtml(company.subjectOfActivity) || '-'}</div>
+                        </div>
+                        <div class="company-field">
+                            <div class="field-label">Собственик (EN)</div>
+                            <div class="field-value">${escapeHtml(company.owner_first_name_en)} ${escapeHtml(company.owner_last_name_en)}</div>
+                        </div>
+                        <div class="company-field">
+                            <div class="field-label">Рождена дата</div>
+                            <div class="field-value">${escapeHtml(company.owner_birthdate) || '-'}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function clearForm() {
+            document.getElementById('names').value = '';
+            document.getElementById('results').classList.remove('show');
+            document.getElementById('results').innerHTML = '';
+            document.getElementById('errorMessage').classList.remove('show');
+        }
+
+        // Keyboard shortcuts
+        document.getElementById('names').addEventListener('keydown', function(e) {
+            // Ctrl+Enter to search
+            if (e.ctrlKey && e.key === 'Enter') {
+                e.preventDefault();
+                searchOwners();
+            }
+        });
+
+        // Auto-focus on textarea when page loads
+        window.addEventListener('load', function() {
+            document.getElementById('names').focus();
+        });
+    </script>
+</body>
+</html>
