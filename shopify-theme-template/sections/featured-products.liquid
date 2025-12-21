@@ -1,0 +1,53 @@
+<section class="featured-products glass-section" aria-labelledby="FeaturedHeading">
+  <div class="container">
+    <div class="section-header" data-animate="fade">
+      <h2 id="FeaturedHeading" class="headline">{{ section.settings.title }}</h2>
+      <p class="subhead">{{ section.settings.subtitle }}</p>
+    </div>
+    <div class="grid" data-animate="fade">
+      {% assign featured_collection = collections[section.settings.collection] %}
+      {% for product in featured_collection.products limit: section.settings.product_limit %}
+        {% render 'product-card', product: product %}
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Featured products",
+  "settings": [
+    {
+      "type": "text",
+      "id": "title",
+      "label": "Heading",
+      "default": "Featured drops"
+    },
+    {
+      "type": "textarea",
+      "id": "subtitle",
+      "label": "Subtitle",
+      "default": "Curated pieces with elevated glass card treatments."
+    },
+    {
+      "type": "collection",
+      "id": "collection",
+      "label": "Collection"
+    },
+    {
+      "type": "range",
+      "id": "product_limit",
+      "label": "Products to show",
+      "min": 2,
+      "max": 12,
+      "step": 1,
+      "default": 4
+    }
+  ],
+  "presets": [
+    {
+      "name": "Featured products"
+    }
+  ]
+}
+{% endschema %}

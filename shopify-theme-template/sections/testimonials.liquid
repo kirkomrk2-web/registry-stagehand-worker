@@ -1,0 +1,62 @@
+<section class="testimonials glass-section" aria-labelledby="TestimonialHeading">
+  <div class="container">
+    <div class="section-header" data-animate="fade">
+      <h2 id="TestimonialHeading" class="headline">{{ section.settings.title }}</h2>
+      <p class="subhead">{{ section.settings.subtitle }}</p>
+    </div>
+    <div class="grid" data-animate="fade">
+      {% for block in section.blocks %}
+        <article class="glass-card testimonial">
+          <p class="testimonial-text">“{{ block.settings.quote }}”</p>
+          <p class="testimonial-author">— {{ block.settings.author }}</p>
+        </article>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Testimonials",
+  "settings": [
+    {
+      "type": "text",
+      "id": "title",
+      "label": "Heading",
+      "default": "Customer reflections"
+    },
+    {
+      "type": "textarea",
+      "id": "subtitle",
+      "label": "Subtitle",
+      "default": "Authentic reviews showcased with luminous glass cards."
+    }
+  ],
+  "blocks": [
+    {
+      "type": "quote",
+      "name": "Quote",
+      "settings": [
+        {
+          "type": "textarea",
+          "id": "quote",
+          "label": "Quote",
+          "default": "The glass effect and motion make this store feel like a luxury brand."
+        },
+        {
+          "type": "text",
+          "id": "author",
+          "label": "Author",
+          "default": "A. Customer"
+        }
+      ]
+    }
+  ],
+  "max_blocks": 6,
+  "presets": [
+    {
+      "name": "Testimonials"
+    }
+  ]
+}
+{% endschema %}

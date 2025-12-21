@@ -1,0 +1,28 @@
+<footer class="site-footer glass-section" data-animate="fade">
+  <div class="container footer-grid glass-card">
+    <div>
+      <h2 class="footer-title">{{ shop.name }}</h2>
+      <p class="footer-text">{{ settings.footer_text }}</p>
+    </div>
+    <div>
+      <h3 class="footer-heading">Explore</h3>
+      <ul class="footer-links">
+        {% for link in linklists.footer.links %}
+          <li><a href="{{ link.url }}">{{ link.title }}</a></li>
+        {% endfor %}
+      </ul>
+    </div>
+    <div>
+      <h3 class="footer-heading">Contact</h3>
+      <p class="footer-text">{{ settings.contact_email }}</p>
+      <p class="footer-text">{{ settings.contact_phone }}</p>
+    </div>
+  </div>
+</footer>
+
+{% schema %}
+{
+  "name": "Footer",
+  "settings": []
+}
+{% endschema %}

@@ -1,0 +1,31 @@
+[
+  {
+    "name": "Theme settings",
+    "settings": [
+      {
+        "type": "color",
+        "id": "color_primary",
+        "label": "Primary color",
+        "default": "#4d5cff"
+      },
+      {
+        "type": "text",
+        "id": "footer_text",
+        "label": "Footer text",
+        "default": "Luxury glass morphism theme for premium storytelling."
+      },
+      {
+        "type": "text",
+        "id": "contact_email",
+        "label": "Contact email",
+        "default": "hello@example.com"
+      },
+      {
+        "type": "text",
+        "id": "contact_phone",
+        "label": "Contact phone",
+        "default": "+1 (555) 000-0000"
+      }
+    ]
+  }
+]
