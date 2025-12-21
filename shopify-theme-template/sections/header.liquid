@@ -1,0 +1,23 @@
+<header class="site-header" data-animate="fade">
+  <div class="container header-inner glass-card">
+    <a class="logo" href="{{ routes.root_url }}">{{ shop.name }}</a>
+    <nav class="nav" role="navigation" aria-label="Main navigation">
+      {% for link in linklists.main-menu.links %}
+        <a class="nav-link" href="{{ link.url }}">{{ link.title }}</a>
+      {% endfor %}
+    </nav>
+    <div class="header-actions">
+      <button class="toggle" type="button" data-theme-toggle aria-pressed="false">
+        <span class="toggle__label">Theme</span>
+      </button>
+      <a class="nav-link" href="{{ routes.cart_url }}">Cart ({{ cart.item_count }})</a>
+    </div>
+  </div>
+</header>
+
+{% schema %}
+{
+  "name": "Header",
+  "settings": []
+}
+{% endschema %}

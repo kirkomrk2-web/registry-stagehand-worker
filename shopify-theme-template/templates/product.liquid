@@ -1,0 +1,39 @@
+<section class="product-view glass-section" aria-labelledby="productTitle">
+  <div class="container">
+    <div class="product-layout">
+      <div class="product-gallery" data-animate="fade">
+        {% for image in product.images %}
+          <button class="gallery-thumb" aria-label="View {{ product.title }} image {{ forloop.index }}" type="button">
+            {{ image | image_url: width: 200 | image_tag: loading: 'lazy', class: 'gallery-thumb__image' }}
+          </button>
+        {% endfor %}
+        <div class="gallery-main glass-card">
+          {{ product.featured_image | image_url: width: 900 | image_tag: loading: 'lazy', class: 'gallery-main__image', alt: product.title }}
+        </div>
+      </div>
+
+      <div class="product-details" data-animate="fade">
+        <p class="eyebrow">{{ product.vendor }}</p>
+        <h1 id="productTitle" class="headline">{{ product.title }}</h1>
+        <p class="price">{{ product.price | money }}</p>
+        <div class="rte">{{ product.description }}</div>
+
+        <form action="/cart/add" method="post" class="product-form" data-ripple>
+          <input type="hidden" name="id" value="{{ product.selected_or_first_available_variant.id }}">
+          {% if product.has_only_default_variant == false %}
+            <label class="field-label" for="variantSelect">Variant</label>
+            <select id="variantSelect" name="id" class="select" aria-label="Choose a variant">
+              {% for variant in product.variants %}
+                <option value="{{ variant.id }}" {% if variant == product.selected_or_first_available_variant %}selected{% endif %}>
+                  {{ variant.title }} - {{ variant.price | money }}
+                </option>
+              {% endfor %}
+            </select>
+          {% endif %}
+
+          <button type="submit" class="button primary">Add to cart</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</section>

@@ -1,0 +1,82 @@
+<section class="hero glass-section" aria-labelledby="HeroHeading">
+  <div class="container hero-grid">
+    <div class="hero-content" data-animate="fade">
+      <p class="eyebrow">{{ section.settings.eyebrow }}</p>
+      <h1 id="HeroHeading" class="headline">{{ section.settings.title }}</h1>
+      <p class="subhead">{{ section.settings.subtitle }}</p>
+      <a class="button primary" href="{{ section.settings.cta_link }}">{{ section.settings.cta_label }}</a>
+    </div>
+    <div class="hero-cards" data-animate="fade">
+      {% for block in section.blocks %}
+        <div class="glass-card hero-card">
+          <h3>{{ block.settings.title }}</h3>
+          <p>{{ block.settings.text }}</p>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Hero",
+  "settings": [
+    {
+      "type": "text",
+      "id": "eyebrow",
+      "label": "Eyebrow",
+      "default": "Limited Edition"
+    },
+    {
+      "type": "text",
+      "id": "title",
+      "label": "Heading",
+      "default": "Elevate your everyday with glass-luxe essentials."
+    },
+    {
+      "type": "textarea",
+      "id": "subtitle",
+      "label": "Subtitle",
+      "default": "Transparent layers, premium lighting, and modern motion — the perfect stage for your catalog."
+    },
+    {
+      "type": "text",
+      "id": "cta_label",
+      "label": "CTA label",
+      "default": "Shop the collection"
+    },
+    {
+      "type": "url",
+      "id": "cta_link",
+      "label": "CTA link",
+      "default": "/collections/all"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "card",
+      "name": "Glass card",
+      "settings": [
+        {
+          "type": "text",
+          "id": "title",
+          "label": "Title",
+          "default": "Premium finishes"
+        },
+        {
+          "type": "textarea",
+          "id": "text",
+          "label": "Text",
+          "default": "Layered glass effects and subtle gradients create a luxurious atmosphere."
+        }
+      ]
+    }
+  ],
+  "max_blocks": 3,
+  "presets": [
+    {
+      "name": "Hero"
+    }
+  ]
+}
+{% endschema %}

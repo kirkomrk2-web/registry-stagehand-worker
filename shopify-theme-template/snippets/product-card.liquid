@@ -1,0 +1,12 @@
+<article class="product-card glass-card" data-animate="fade">
+  <a href="{{ product.url }}" class="product-card__link">
+    <div class="product-card__image">
+      {{ product.featured_image | image_url: width: 600 | image_tag: loading: 'lazy', alt: product.title }}
+    </div>
+    <div class="product-card__content">
+      <h3 class="product-card__title">{{ product.title }}</h3>
+      <p class="product-card__price">{{ product.price | money }}</p>
+      <span class="product-card__cta">View product</span>
+    </div>
+  </a>
+</article>
