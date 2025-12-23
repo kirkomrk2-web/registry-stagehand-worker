@@ -1,0 +1,76 @@
+[
+  {
+    "name": "Цветове",
+    "settings": [
+      {
+        "type": "color",
+        "id": "color_primary",
+        "label": "Основен цвят",
+        "default": "#5B4A9F"
+      },
+      {
+        "type": "color",
+        "id": "color_secondary",
+        "label": "Вторичен цвят",
+        "default": "#E74C3C"
+      },
+      {
+        "type": "color",
+        "id": "color_accent",
+        "label": "Акцентен цвят",
+        "default": "#3498DB"
+      }
+    ]
+  },
+  {
+    "name": "Типография",
+    "settings": [
+      {
+        "type": "font_picker",
+        "id": "font_heading",
+        "label": "Шрифт за заглавия",
+        "default": "opensans_n4"
+      },
+      {
+        "type": "font_picker",
+        "id": "font_body",
+        "label": "Шрифт за текст",
+        "default": "opensans_n4"
+      }
+    ]
+  },
+  {
+    "name": "Контакт",
+    "settings": [
+      {
+        "type": "text",
+        "id": "contact_email",
+        "label": "Email адрес",
+        "default": "contact@veliemconsultgroup.com"
+      },
+      {
+        "type": "text",
+        "id": "contact_phone",
+        "label": "Телефон",
+        "default": "+359 XXX XXX XXX"
+      },
+      {
+        "type": "text",
+        "id": "contact_address",
+        "label": "Адрес",
+        "default": "град, България"
+      }
+    ]
+  },
+  {
+    "name": "Футър",
+    "settings": [
+      {
+        "type": "text",
+        "id": "footer_text",
+        "label": "Текст във футъра",
+        "default": "Велием Консултгруп - Професионални консултантски услуги."
+      }
+    ]
+  }
+]

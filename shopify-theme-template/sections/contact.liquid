@@ -1,0 +1,58 @@
+<section class="contact-section glass-section" aria-labelledby="ContactHeading">
+  <div class="container">
+    <div class="section-header" data-animate="fade">
+      <h2 id="ContactHeading" class="headline">{{ section.settings.title }}</h2>
+      <p class="subhead">{{ section.settings.subtitle }}</p>
+    </div>
+    <div class="contact-grid" data-animate="fade">
+      <div class="glass-card contact-card">
+        <h3>Контакти</h3>
+        <p>{{ settings.contact_email }}</p>
+        <p>{{ settings.contact_phone }}</p>
+        <p>{{ settings.contact_address }}</p>
+      </div>
+      <div class="glass-card contact-card">
+        <h3>Запитване</h3>
+        <p>Изпратете ни съобщение и ще се свържем с вас в най-кратък срок.</p>
+        <a href="{{ section.settings.cta_link }}" class="button primary">{{ section.settings.cta_label }}</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Контакт",
+  "settings": [
+    {
+      "type": "text",
+      "id": "title",
+      "label": "Заглавие",
+      "default": "Свържете се с нас"
+    },
+    {
+      "type": "textarea",
+      "id": "subtitle",
+      "label": "Подзаглавие",
+      "default": "Подкрепа за вашите следващи стратегически решения."
+    },
+    {
+      "type": "text",
+      "id": "cta_label",
+      "label": "Текст на бутона",
+      "default": "Изпрати запитване"
+    },
+    {
+      "type": "url",
+      "id": "cta_link",
+      "label": "Връзка на бутона",
+      "default": "/pages/contact"
+    }
+  ],
+  "presets": [
+    {
+      "name": "Контакт"
+    }
+  ]
+}
+{% endschema %}

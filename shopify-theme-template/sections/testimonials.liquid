@@ -1,0 +1,83 @@
+<section class="testimonials-section glass-section" aria-labelledby="TestimonialHeading">
+  <div class="container">
+    <div class="section-header" data-animate="fade">
+      <h2 id="TestimonialHeading" class="headline">{{ section.settings.title }}</h2>
+      <p class="subhead">{{ section.settings.subtitle }}</p>
+    </div>
+    <div class="testimonials-grid" data-animate="fade">
+      {% for block in section.blocks %}
+        <div class="glass-card testimonial-card">
+          <p class="testimonial-text">{{ block.settings.review }}</p>
+          <div class="testimonial-author">
+            <strong>{{ block.settings.author_name }}</strong>
+            <span>{{ block.settings.author_title }}</span>
+          </div>
+          <div class="testimonial-rating">
+            {% for i in (1..block.settings.rating) %}
+              <span aria-hidden="true">⭐</span>
+            {% endfor %}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Отзиви",
+  "settings": [
+    {
+      "type": "text",
+      "id": "title",
+      "label": "Заглавие",
+      "default": "Отзиви от клиенти"
+    },
+    {
+      "type": "textarea",
+      "id": "subtitle",
+      "label": "Подзаглавие",
+      "default": "Доверие, изградено с дългосрочни партньорства."
+    }
+  ],
+  "blocks": [
+    {
+      "type": "testimonial",
+      "name": "Отзив",
+      "settings": [
+        {
+          "type": "textarea",
+          "id": "review",
+          "label": "Текст на отзива",
+          "default": "Професионализъм и внимание към детайла във всяка стъпка."
+        },
+        {
+          "type": "text",
+          "id": "author_name",
+          "label": "Име на клиента",
+          "default": "Име на клиент"
+        },
+        {
+          "type": "text",
+          "id": "author_title",
+          "label": "Компания/Позиция",
+          "default": "Компания"
+        },
+        {
+          "type": "range",
+          "id": "rating",
+          "min": 1,
+          "max": 5,
+          "label": "Оценка",
+          "default": 5
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Отзиви"
+    }
+  ]
+}
+{% endschema %}

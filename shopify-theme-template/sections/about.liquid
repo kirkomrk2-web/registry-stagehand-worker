@@ -1,0 +1,78 @@
+<section class="about-section glass-section" aria-labelledby="AboutHeading">
+  <div class="container">
+    <div class="about-grid" data-animate="fade">
+      <div>
+        <h2 id="AboutHeading" class="headline">{{ section.settings.title }}</h2>
+        <div class="rte">{{ section.settings.content }}</div>
+      </div>
+      <div class="about-team">
+        {% for block in section.blocks %}
+          <div class="glass-card team-card">
+            {% if block.settings.photo %}
+              <img src="{{ block.settings.photo | image_url: width: 200 }}" alt="{{ block.settings.name }}" class="team-photo">
+            {% endif %}
+            <h3>{{ block.settings.name }}</h3>
+            <p class="team-position">{{ block.settings.position }}</p>
+            <p>{{ block.settings.bio }}</p>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "За нас",
+  "settings": [
+    {
+      "type": "text",
+      "id": "title",
+      "label": "Заглавие",
+      "default": "За нас"
+    },
+    {
+      "type": "richtext",
+      "id": "content",
+      "label": "Съдържание",
+      "default": "<p>Велием Консултгруп предлага комплексна правна и бизнес експертиза, ориентирана към устойчив растеж.</p>"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "member",
+      "name": "Член на екипа",
+      "settings": [
+        {
+          "type": "text",
+          "id": "name",
+          "label": "Име",
+          "default": "Име на експерт"
+        },
+        {
+          "type": "text",
+          "id": "position",
+          "label": "Позиция",
+          "default": "Позиция"
+        },
+        {
+          "type": "textarea",
+          "id": "bio",
+          "label": "Биография",
+          "default": "Биография на експерт от екипа."
+        },
+        {
+          "type": "image_picker",
+          "id": "photo",
+          "label": "Снимка"
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "За нас"
+    }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,43 @@
+<header class="site-header" data-animate="fade">
+  <div class="container header-inner glass-card">
+    <div class="logo">
+      <a href="{{ routes.root_url }}">
+        {% if section.settings.logo %}
+          <img src="{{ section.settings.logo | image_url: width: 200 }}" alt="{{ shop.name }}" class="logo-image">
+        {% else %}
+          <span class="logo-text">{{ shop.name }}</span>
+        {% endif %}
+      </a>
+    </div>
+    <nav class="nav" role="navigation" aria-label="Главно меню">
+      {% for link in section.settings.menu.links %}
+        <a class="nav-link" href="{{ link.url }}">{{ link.title }}</a>
+      {% endfor %}
+    </nav>
+    <div class="header-actions">
+      <button class="toggle" type="button" data-theme-toggle aria-pressed="false">
+        <span class="toggle__label">Тема</span>
+      </button>
+      <a class="button primary" href="/pages/contact">Свържете се</a>
+    </div>
+  </div>
+</header>
+
+{% schema %}
+{
+  "name": "Хедър",
+  "settings": [
+    {
+      "type": "image_picker",
+      "id": "logo",
+      "label": "Логотип"
+    },
+    {
+      "type": "link_list",
+      "id": "menu",
+      "label": "Главно меню",
+      "default": "main-menu"
+    }
+  ]
+}
+{% endschema %}

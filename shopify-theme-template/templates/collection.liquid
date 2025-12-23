@@ -1,0 +1,32 @@
+<section class="collection-hero glass-section" aria-labelledby="collectionTitle">
+  <div class="container">
+    <h1 id="collectionTitle" class="headline">{{ collection.title }}</h1>
+    {% if collection.description != blank %}
+      <div class="rte">{{ collection.description }}</div>
+    {% endif %}
+  </div>
+</section>
+
+<section class="collection-grid glass-section">
+  <div class="container">
+    <div class="collection-toolbar glass-card" data-animate="fade">
+      <label class="field-label" for="sortBy">Sort by</label>
+      <select id="sortBy" class="select" name="sort_by" onchange="location = this.value;">
+        {% assign sort_options = collection.sort_options %}
+        {% for option in sort_options %}
+          <option value="{{ option.value | escape }}" {% if option.value == collection.sort_by %}selected{% endif %}>
+            {{ option.name }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="grid" data-animate="fade">
+      {% for product in collection.products %}
+        {% render 'product-card', product: product %}
+      {% else %}
+        <p>No products found.</p>
+      {% endfor %}
+    </div>
+  </div>
+</section>

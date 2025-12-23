@@ -1,0 +1,36 @@
+<footer class="site-footer glass-section" data-animate="fade">
+  <div class="container footer-grid glass-card">
+    <div>
+      <h2 class="footer-title">{{ shop.name }}</h2>
+      <p class="footer-text">{{ settings.footer_text }}</p>
+    </div>
+    <div>
+      <h3 class="footer-heading">Навигация</h3>
+      <ul class="footer-links">
+        {% for link in section.settings.menu.links %}
+          <li><a href="{{ link.url }}">{{ link.title }}</a></li>
+        {% endfor %}
+      </ul>
+    </div>
+    <div>
+      <h3 class="footer-heading">Контакти</h3>
+      <p class="footer-text">{{ settings.contact_email }}</p>
+      <p class="footer-text">{{ settings.contact_phone }}</p>
+      <p class="footer-text">{{ settings.contact_address }}</p>
+    </div>
+  </div>
+</footer>
+
+{% schema %}
+{
+  "name": "Футър",
+  "settings": [
+    {
+      "type": "link_list",
+      "id": "menu",
+      "label": "Меню във футъра",
+      "default": "footer"
+    }
+  ]
+}
+{% endschema %}
