@@ -1,0 +1,218 @@
+{
+  "name": "Phone - SMS Allocation & Scraping",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "phone-sms-scraper",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [240, 300],
+      "id": "webhook-phone",
+      "name": "Webhook Trigger"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, phone_number, country_code, sms_url, platform\nFROM sms_numbers_pool\nWHERE status = 'available' AND platform = 'smstome'\nORDER BY created_at ASC\nLIMIT 1;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [460, 300],
+      "id": "get-available-phone",
+      "name": "Get Available Phone",
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-cred",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "sms_numbers_pool",
+        "filterType": "manual",
+        "matchFields": {
+          "values": [
+            {
+              "field": "id",
+              "value": "={{ $json.id }}"
+            }
+          ]
+        },
+        "updateFields": {
+          "values": [
+            {
+              "field": "status",
+              "value": "in_use"
+            },
+            {
+              "field": "assigned_to",
+              "value": "={{ $('Webhook Trigger').item.json.body.owner_id }}"
+            },
+            {
+              "field": "assigned_at",
+              "value": "={{ $now.toISO() }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [680, 300],
+      "id": "reserve-phone",
+      "name": "Reserve Phone"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "phone-num",
+              "name": "phone_number",
+              "value": "={{ $json.phone_number }}",
+              "type": "string"
+            },
+            {
+              "id": "sms-url",
+              "name": "sms_url",
+              "value": "={{ $json.sms_url }}",
+              "type": "string"
+            },
+            {
+              "id": "country",
+              "name": "country_code",
+              "value": "={{ $json.country_code }}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [900, 300],
+      "id": "set-phone-vars",
+      "name": "Set Phone Variables"
+    },
+    {
+      "parameters": {
+        "options": {
+          "maxIterations": 12,
+          "loopDelay": 10000
+        }
+      },
+      "type": "n8n-nodes-base.loop",
+      "typeVersion": 1,
+      "position": [1120, 300],
+      "id": "wait-for-sms",
+      "name": "Wait for SMS (Loop)"
+    },
+    {
+      "parameters": {
+        "instructions": "You are a web scraping agent. Your task:\n\n1. Navigate to this URL: {{ $('Set Phone Variables').item.json.sms_url }}\n2. Login to smstome.com using:\n   - Email: kirkomrk@gmail.com\n   - Password: zdraveibobi12\n3. Once logged in, find the LATEST 6-digit verification code from Wallester (usually at the top of SMS list)\n4. Return ONLY the 6-digit code, nothing else\n\nIf no code is found yet, return 'NO_CODE'",
+        "airtopProfileName": "smstome",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-airtop.airtopBrowserAgent",
+      "typeVersion": 1,
+      "position": [1340, 300],
+      "id": "scrape-sms-code",
+      "name": "Scrape SMS Code",
+      "credentials": {
+        "airtopApi": {
+          "id": "airtop-cred",
+          "name": "Airtop account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract 6-digit code from Airtop response\nconst response = $json.response || $json.output || '';\nconst match = String(response).match(/\\b\\d{6}\\b/);\nconst code = match ? match[0] : null;\n\nif (!code || code === 'NO_CODE') {\n  // No code yet, continue loop\n  return [{ json: { found: false, code: null } }];\n}\n\n// Code found!\nreturn [{ json: { found: true, sms_code: code } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1560, 300],
+      "id": "extract-code",
+      "name": "Extract Code"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.found }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1780, 300],
+      "id": "code-found",
+      "name": "Code Found?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"phone_number\": $('Set Phone Variables').item.json.phone_number, \"sms_url\": $('Set Phone Variables').item.json.sms_url, \"sms_code\": $json.sms_code, \"status\": \"success\" } }}"
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2000, 200],
+      "id": "return-success",
+      "name": "Return Success"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [2000, 400],
+      "id": "continue-loop",
+      "name": "Continue Loop"
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [[{ "node": "Get Available Phone", "type": "main", "index": 0 }]]
+    },
+    "Get Available Phone": {
+      "main": [[{ "node": "Reserve Phone", "type": "main", "index": 0 }]]
+    },
+    "Reserve Phone": {
+      "main": [[{ "node": "Set Phone Variables", "type": "main", "index": 0 }]]
+    },
+    "Set Phone Variables": {
+      "main": [[{ "node": "Wait for SMS (Loop)", "type": "main", "index": 0 }]]
+    },
+    "Wait for SMS (Loop)": {
+      "main": [[{ "node": "Scrape SMS Code", "type": "main", "index": 0 }]]
+    },
+    "Scrape SMS Code": {
+      "main": [[{ "node": "Extract Code", "type": "main", "index": 0 }]]
+    },
+    "Extract Code": {
+      "main": [[{ "node": "Code Found?", "type": "main", "index": 0 }]]
+    },
+    "Code Found?": {
+      "main": [
+        [{ "node": "Return Success", "type": "main", "index": 0 }],
+        [{ "node": "Continue Loop", "type": "main", "index": 0 }]
+      ]
+    },
+    "Continue Loop": {
+      "main": [[{ "node": "Wait for SMS (Loop)", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "id": "phone-sms-workflow",
+  "tags": []
+}

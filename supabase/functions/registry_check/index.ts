@@ -85,28 +85,34 @@ function extractVerifiedBusinesses(ownershipData: any, personId: string) {
     // We only care about company entities connected to this person
     if (entity.type !== 'company') continue;
 
-    // Accept if:
-    //  - SoleCapitalOwner (100% owner)
-    //  - PhysicalPersonTrader (sole trader)
-    //  - Partners with 100% share in metadata.share
+    // Extract ownership percentage
     const shareStr = rel?.metadata?.share || rel?.metadata?.percentage || null;
     const shareNum = typeof shareStr === 'string' ? parseFloat(String(shareStr).replace('%','')) : (typeof shareStr === 'number' ? shareStr : NaN);
+    const ownershipPercent = !isNaN(shareNum) ? Math.round(shareNum) : null;
 
-    const isSole = rtype === 'SoleCapitalOwner' || (!isNaN(shareNum) && Math.round(shareNum) === 100);
+    const isSole = rtype === 'SoleCapitalOwner' || (ownershipPercent === 100);
     const isET = rtype === 'PhysicalPersonTrader';
+    const isOOD = rtype === 'Partners' && ownershipPercent !== null && ownershipPercent >= 50;
 
-    if (isSole || isET) {
-      const uic = entity.id || entity.uic || null; // API uses id=uic for companies
+    // Accept EOOD (100%), ET, or OOD with >=50%
+    if (isSole || isET || isOOD) {
+      const uic = entity.id || entity.uic || null;
       const name = entity.name || null;
-      const nameEn = entity.name_en || null; // CRITICAL: Capture English name from relationships entity
-      const category = isET ? 'ET' : (rtype === 'SoleCapitalOwner' ? 'SoleCapitalOwner' : 'Partners100');
+      const nameEn = entity.name_en || null;
+      
+      let category = '';
+      if (isET) category = 'ET';
+      else if (isSole) category = 'SoleCapitalOwner';
+      else if (isOOD) category = 'Partners50Plus';
+      
       companies.push({
         eik: uic,
         business_name_bg: name,
-        business_name_en: nameEn, // Store the English name from relationships
+        business_name_en: nameEn,
         legal_form: null,
-        entity_type: isET ? 'ET' : 'EOOD', // will confirm via details
-        category: category, // Store category for better detection
+        entity_type: isET ? 'ET' : (isOOD ? 'OOD' : 'EOOD'),
+        category: category,
+        ownership_percent: ownershipPercent, // NEW: store ownership %
         incorporation_date: null,
         address: null
       });
@@ -245,25 +251,49 @@ serve(async (req: Request) => {
                /\bet\b/.test(legalForm);
       }
       
-      // Determine if "eligible" for Wallester (but KEEP all companies)
-      const isEligible = isActive && (isEOOD || isET) && !!englishName;
+      // Extract NKID (primary business activity code and description)
+      const nkids = comp.nkids || [];
+      const primaryNkid = Array.isArray(nkids) && nkids.length > 0 ? nkids[0] : null;
+      const nkidCode = primaryNkid?.code || null;
+      const nkidDescription = primaryNkid?.description || null;
       
-      console.log(`[FILTER] ${e}: ${isEligible ? '✓ ELIGIBLE' : '⚠ NOT ELIGIBLE'} (${englishName || 'NO_EN_NAME'}, ${legalForm}, ${status})`);
+      // Check if entity_type matches category for better accuracy
+      let finalEntityType = company.entity_type;
+      if (category === 'Partners50Plus') {
+        finalEntityType = 'OOD';
+      } else if (isEOOD) {
+        finalEntityType = 'EOOD';
+      } else if (isET) {
+        finalEntityType = 'ET';
+      }
+      
+      // Determine if "eligible" for Wallester with updated rules
+      // - Must be EOOD, ET, or OOD with >=50% ownership
+      // - Must be active
+      // - Must have official English name (not just transliteration)
+      const hasOfficialEnglish = englishName && englishName !== (comp.companyNameTransliteration?.name || '');
+      const isEligible = isActive && 
+                        (finalEntityType === 'EOOD' || finalEntityType === 'ET' || (finalEntityType === 'OOD' && (company.ownership_percent || 0) >= 50)) && 
+                        !!englishName;
+      
+      console.log(`[FILTER] ${e}: ${isEligible ? '✓ ELIGIBLE' : '⚠ NOT ELIGIBLE'} (${englishName || 'NO_EN_NAME'}, ${finalEntityType}, ownership:${company.ownership_percent}%, ${status})`);
       
       const merged = {
         ...company,
         business_name_bg: comp.name || company.business_name_bg,
         business_name_en: englishName,
         legal_form: comp.legalForm || company.legal_form || null,
-        entity_type: isEOOD ? 'EOOD' : (isET ? 'ET' : 'OTHER'),
+        entity_type: finalEntityType,
         incorporation_date: comp.registrationDate || company.incorporation_date || null,
         address: comp.seat ? formatAddress(comp.seat) : (company.address || null),
         status: status,
         is_active: isActive,
         is_eligible_for_wallester: isEligible,
+        nkid_code: nkidCode,                    // NEW: NKID code
+        nkid_description: nkidDescription,      // NEW: NKID description
         filter_reason: !isEligible ? (
           !isActive ? 'inactive' : 
-          (!isEOOD && !isET) ? 'wrong_type' : 
+          (!isEOOD && !isET && !(finalEntityType === 'OOD' && (company.ownership_percent || 0) >= 50)) ? 'wrong_type_or_low_ownership' : 
           !englishName ? 'no_english_name' : 
           'unknown'
         ) : null,

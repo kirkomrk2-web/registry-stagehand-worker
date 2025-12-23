@@ -1,0 +1,159 @@
+{
+  "name": "Email - Alias Creation & Code Scraping",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "email-verification-scraper",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [240, 300],
+      "id": "webhook-email",
+      "name": "Webhook Trigger"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generate unique email alias for Wallester registration\n// Format: businessname<random>@workmail.pro\n\nconst input = $json.body || $json;\nconst businessName = input.business_name_en || '';\n\n// Clean business name (remove special chars, spaces)\nconst base = businessName.toLowerCase()\n  .replace(/[^a-z0-9]/g, '')\n  .substring(0, 20); // Max 20 chars\n\n// Add random suffix for uniqueness\nconst random = Math.floor(Math.random() * 999) + 1;\nconst alias = `${base}${random}@workmail.pro`;\n\nreturn {\n  json: {\n    email_alias: alias,\n    business_name: businessName,\n    owner_id: input.owner_id,\n    eik: input.eik\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300],
+      "id": "generate-alias",
+      "name": "Generate Email Alias"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "email-alias",
+              "name": "email_alias",
+              "value": "={{ $json.email_alias }}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [680, 300],
+      "id": "set-email-var",
+      "name": "Set Email Variable"
+    },
+    {
+      "parameters": {
+        "options": {
+          "maxIterations": 15,
+          "loopDelay": 8000
+        }
+      },
+      "type": "n8n-nodes-base.loop",
+      "typeVersion": 1,
+      "position": [900, 300],
+      "id": "wait-for-email",
+      "name": "Wait for Email (Loop)"
+    },
+    {
+      "parameters": {
+        "instructions": "You are an email scraping agent. Your task:\n\n1. Navigate to Hostinger webmail: https://webmail.hostinger.com\n2. Login using:\n   - Email: support@33mailbox.com\n   - Password: [use saved credentials from 'mail-hostinger' profile]\n3. Open the INBOX\n4. Find the LATEST email that:\n   - Is FROM Wallester\n   - Is TO or CONTAINS: {{ $('Set Email Variable').item.json.email_alias }}\n   - Contains a 6-digit verification code\n5. Extract and return ONLY the 6-digit code\n\nIf no matching email is found yet, return 'NO_CODE'",
+        "airtopProfileName": "mail-hostinger",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-airtop.airtopBrowserAgent",
+      "typeVersion": 1,
+      "position": [1120, 300],
+      "id": "scrape-email-code",
+      "name": "Scrape Email Code",
+      "credentials": {
+        "airtopApi": {
+          "id": "airtop-cred",
+          "name": "Airtop account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract 6-digit code from Airtop email scraping response\nconst response = $json.response || $json.output || '';\nconst match = String(response).match(/\\b\\d{6}\\b/);\nconst code = match ? match[0] : null;\n\nif (!code || response.includes('NO_CODE')) {\n  // No code yet, continue loop\n  return [{ json: { found: false, code: null } }];\n}\n\n// Code found!\nreturn [{ json: { found: true, email_code: code } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 300],
+      "id": "extract-email-code",
+      "name": "Extract Email Code"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.found }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1560, 300],
+      "id": "email-code-found",
+      "name": "Email Code Found?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"email_alias\": $('Set Email Variable').item.json.email_alias, \"email_code\": $json.email_code, \"status\": \"success\" } }}"
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1780, 200],
+      "id": "return-email-success",
+      "name": "Return Success"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1780, 400],
+      "id": "continue-email-loop",
+      "name": "Continue Loop"
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [[{ "node": "Generate Email Alias", "type": "main", "index": 0 }]]
+    },
+    "Generate Email Alias": {
+      "main": [[{ "node": "Set Email Variable", "type": "main", "index": 0 }]]
+    },
+    "Set Email Variable": {
+      "main": [[{ "node": "Wait for Email (Loop)", "type": "main", "index": 0 }]]
+    },
+    "Wait for Email (Loop)": {
+      "main": [[{ "node": "Scrape Email Code", "type": "main", "index": 0 }]]
+    },
+    "Scrape Email Code": {
+      "main": [[{ "node": "Extract Email Code", "type": "main", "index": 0 }]]
+    },
+    "Extract Email Code": {
+      "main": [[{ "node": "Email Code Found?", "type": "main", "index": 0 }]]
+    },
+    "Email Code Found?": {
+      "main": [
+        [{ "node": "Return Success", "type": "main", "index": 0 }],
+        [{ "node": "Continue Loop", "type": "main", "index": 0 }]
+      ]
+    },
+    "Continue Loop": {
+      "main": [[{ "node": "Wait for Email (Loop)", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "id": "email-verification-workflow",
+  "tags": []
+}

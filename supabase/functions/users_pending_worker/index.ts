@@ -248,17 +248,78 @@ async function allocatePhone(supabase: any, ownerId: string) {
 }
 
 function pickTopCompany(companies: any[]) {
-  // Simple heuristic: prefer EOOD, then longest english name, fallback first
+  // Priority: EOOD > ET > OOD, then longest english name
   if (!companies || companies.length === 0) return null;
   const sorted = [...companies].sort((a, b) => {
-    const aEOOD = a.entity_type === "EOOD" ? 1 : 0;
-    const bEOOD = b.entity_type === "EOOD" ? 1 : 0;
-    if (bEOOD !== aEOOD) return bEOOD - aEOOD;
+    const typeOrder: Record<string, number> = { 'EOOD': 3, 'ET': 2, 'OOD': 1 };
+    const aOrder = typeOrder[a.entity_type] || 0;
+    const bOrder = typeOrder[b.entity_type] || 0;
+    if (bOrder !== aOrder) return bOrder - aOrder;
     const al = (a.business_name_en || "").length;
     const bl = (b.business_name_en || "").length;
     return bl - al;
   });
   return sorted[0];
+}
+
+// Generate Wallester-friendly business name
+function makeWallesterName(originalName: string, entityType: string | null): string {
+  if (!originalName) return '';
+  const trimmed = originalName.trim();
+  const upper = trimmed.toUpperCase();
+  
+  // Check if name already ends with known suffixes
+  const endings = ['EOOD', 'E.O.O.D', 'OOD', 'LTD', 'L.T.D', 'LIMITED', 'LLC', 'L.L.C'];
+  const hasEnding = endings.some(e => upper.endsWith(e) || upper.endsWith(e + '.'));
+  
+  if (hasEnding) {
+    return trimmed; // Don't modify if already has ending
+  }
+  
+  // Add SLLC for EOOD (Single-member Limited Liability Company)
+  if (entityType === 'EOOD') {
+    return `${trimmed} SLLC`;
+  }
+  
+  return trimmed;
+}
+
+// Format address for block vs street cases
+function formatDetailedAddress(seat: any) {
+  if (!seat) return { line: '', street: '', block: '', housingEstate: '', city: '', postcode: '' };
+  
+  const hasStreet = seat.street && String(seat.street).trim() !== '';
+  const hasBlock = seat.block && String(seat.block).trim() !== '';
+  const hasHousingEstate = seat.housingEstate && String(seat.housingEstate).trim() !== '';
+  
+  let streetLine = '';
+  if (hasStreet) {
+    streetLine = `${seat.street} ${seat.streetNumber || ''}`.trim();
+  } else if (hasBlock || hasHousingEstate) {
+    const parts = [];
+    if (hasHousingEstate) parts.push(`Housing Estate ${seat.housingEstate}`);
+    if (hasBlock) parts.push(`Block ${seat.block}`);
+    if (seat.entrance) parts.push(`Entrance ${seat.entrance}`);
+    if (seat.floor) parts.push(`Floor ${seat.floor}`);
+    if (seat.apartment) parts.push(`Apt ${seat.apartment}`);
+    streetLine = parts.join(', ');
+  }
+  
+  const addressParts = [];
+  if (seat.country) addressParts.push(seat.country);
+  if (seat.district) addressParts.push(seat.district);
+  if (seat.municipality) addressParts.push(seat.municipality);
+  if (seat.settlement) addressParts.push(seat.settlement);
+  if (seat.postCode) addressParts.push(seat.postCode);
+  
+  return {
+    line: addressParts.join('\n'),
+    street: streetLine,
+    block: hasBlock ? seat.block : '',
+    housingEstate: hasHousingEstate ? seat.housingEstate : '',
+    city: seat.settlement || '',
+    postcode: seat.postCode || ''
+  };
 }
 
 // Remove any phone/email fields from company objects defensively
@@ -364,30 +425,52 @@ serve(async (req: Request) => {
     
     console.log(`[users_pending_worker] Owner names: ${first} -> ${owner_first_name_en}, ${last} -> ${owner_last_name_en}`);
 
-    // 5) Build waiting_list structure for each company
+    // 5) Build improved waiting_list structure for each company
     const waiting_list = companies.map((company: any) => {
       const details = company.details || {};
       const comp = details.company || details || {};
       const seat = comp.seat || {};
       
-      // Format birthdate as dd.mm.yyyy only
+      // Format birthdate as dd.mm.yyyy
       const formattedBirthDate = birthDate ? formatDateToDDMMYYYY(birthDate) : '';
       
-      // Transliterate address and street to Latin
-      const rawAddress = formatAddress(seat) || '';
-      const addressLatin = transliterateCyrillicToLatin(rawAddress);
+      // Get detailed address info (handles both street and block cases)
+      const addressInfo = formatDetailedAddress(seat);
+      const addressLatin = transliterateCyrillicToLatin(addressInfo.line);
+      const streetLatin = transliterateCyrillicToLatin(addressInfo.street);
       
-      const rawStreet = `${seat.street || ''} ${seat.streetNumber || ''}`.trim();
-      const streetLatin = transliterateCyrillicToLatin(rawStreet);
+      // Generate Wallester-friendly name
+      const wallesterName = makeWallesterName(company.business_name_en, company.entity_type);
+      
+      // Extract NKID (if available from registry_check)
+      const nkidCode = company.nkid_code || null;
+      const nkidDescription = company.nkid_description || null;
       
       return {
-        business_name_en: company.business_name_en || '',
-        lastUpdated: formatDateToDDMMYYYY(comp.lastUpdated || ''),
+        // Business identification
         EIK: company.eik || '',
         VAT: company.eik ? `BG${company.eik}` : '',
-        subjectOfActivity: comp.subjectOfActivity || '',
-        address: addressLatin,
-        street: streetLatin,
+        business_name_en: company.business_name_en || '',
+        business_name_wallester: wallesterName,
+        entity_type: company.entity_type || '',
+        ownership_percent: company.ownership_percent || 100,
+        
+        // NKID classification (replaces long subjectOfActivity)
+        nkid_code: nkidCode,
+        nkid_description: nkidDescription,
+        
+        // Address details (handles both street and block)
+        address_line: addressLatin,
+        address_street: streetLatin,
+        address_block: addressInfo.block,
+        address_housing_estate: addressInfo.housingEstate,
+        address_city: transliterateCyrillicToLatin(addressInfo.city),
+        address_postcode: addressInfo.postcode,
+        
+        // Meta
+        last_updated: formatDateToDDMMYYYY(comp.lastUpdated || ''),
+        
+        // Owner info (same for all companies of this owner)
         owner_first_name_en,
         owner_last_name_en,
         owner_birthdate: formattedBirthDate

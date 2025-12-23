@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registry Live Check - До 3 имена</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .limit-badge {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 8px 20px;
+            border-radius: 20px;
+            display: inline-block;
+            margin-top: 10px;
+            font-weight: 600;
+        }
+
+        .input-section {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            margin-bottom: 30px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-group label {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 1rem;
+            display: block;
+        }
+
+        .input-group textarea {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-family: inherit;
+            transition: all 0.3s;
+            min-height: 120px;
+            resize: vertical;
+        }
+
+        .input-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .input-hint {
+            font-size: 0.9rem;
+            color: #666;
+            margin-top: 8px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border-left: 4px solid #667eea;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        button {
+            padding: 15px 40px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-search {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-search:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-search:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .btn-clear {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .btn-clear:hover {
+            background: #e0e0e0;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            display: none;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .loading-spinner {
+            width: 60px;
+            height: 60px;
+            border: 6px solid #f3f3f3;
+            border-top: 6px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            color: #333;
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .loading-progress {
+            color: #666;
+            font-size: 1rem;
+        }
+
+        .results-section {
+            display: none;
+        }
+
+        .results-section.show {
+            display: block;
+        }
+
+        .owner-card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            animation: slideIn 0.5s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .owner-header {
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 20px;
+            margin-bottom: 25px;
+        }
+
+        .owner-name {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .owner-number {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+
+        .owner-name h2 {
+            font-size: 1.8rem;
+            color: #333;
+        }
+
+        .companies-section h3 {
+            font-size: 1.4rem;
+            color: #333;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .company-count {
+            background: #667eea;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+        }
+
+        .company-item {
+            background: #ffffff;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 15px;
+            transition: all 0.3s;
+        }
+
+        .company-item:hover {
+            border-color: #667eea;
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.2);
+            transform: translateX(5px);
+        }
+
+        .company-name {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .company-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+
+        .company-field {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .field-label {
+            font-size: 0.8rem;
+            color: #666;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            margin-bottom: 5px;
+        }
+
+        .field-value {
+            font-size: 1rem;
+            color: #333;
+            word-break: break-word;
+        }
+
+        .no-results {
+            background: white;
+            border-radius: 15px;
+            padding: 60px 30px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .no-results-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+        }
+
+        .no-results h3 {
+            font-size: 1.8rem;
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .no-results p {
+            font-size: 1.1rem;
+            color: #666;
+        }
+
+        .error-message {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        .error-title {
+            font-weight: 600;
+            color: #856404;
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+        }
+
+        .error-text {
+            color: #856404;
+        }
+
+        .footer {
+            text-align: center;
+            color: white;
+            margin-top: 40px;
+            opacity: 0.8;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 Registry Live Check</h1>
+            <p>Реална проверка в CompanyBook Registry - до 3 имена</p>
+            <div class="limit-badge">📊 Лимит: До 3 имена наведнъж</div>
+        </div>
+
+        <div class="input-section">
+            <div class="error-message" id="errorMessage">
+                <div class="error-title">⚠️ Грешка</div>
+                <div class="error-text" id="errorText"></div>
+            </div>
+
+            <div class="input-group">
+                <label for="names">✍️ Въведете до 3 имена (всяко на нов ред):</label>
+                <textarea 
+                    id="names" 
+                    placeholder="Иван Петров Иванов&#10;Георги Стоянов Георгиев&#10;Петър Николов Петров"
+                    maxlength="500"
+                ></textarea>
+                <div class="input-hint">
+                    💡 <strong>Реална проверка:</strong> Системата ще търси в CompanyBook API и ще покаже намерените фирми и данни. 
+                    Максимум <strong>3 имена</strong> наведнъж.
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button class="btn-search" id="searchBtn" onclick="startSearch()">
+                    🔍 Провери в Registry
+                </button>
+                <button class="btn-clear" onclick="clearForm()">
+                    🗑️ Изчисти
+                </button>
+            </div>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">⏳ Търсене в CompanyBook Registry...</div>
+            <div class="loading-progress" id="loadingProgress">Обработка на име 0 от 0</div>
+        </div>
+
+        <div class="results-section" id="results"></div>
+
+        <div class="footer">
+            © 2025 Registry Live Check | Made with ❤️
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://ansiaiuaygcfztabtknl.supabase.co';
+        const EDGE_FUNCTION_URL = `${SUPABASE_URL}/functions/v1/registry_live_check`;
+        const MAX_NAMES = 3;
+
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            const errorText = document.getElementById('errorText');
+            errorText.textContent = message;
+            errorDiv.classList.add('show');
+            
+            setTimeout(() => {
+                errorDiv.classList.remove('show');
+            }, 6000);
+        }
+
+        async function searchRegistry(name) {
+            const response = await fetch(EDGE_FUNCTION_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ name })
+            });
+
+            if (!response.ok) {
+                throw new Error(`Registry check error: ${response.status}`);
+            }
+
+            return await response.json();
+        }
+
+        async function startSearch() {
+            const namesText = document.getElementById('names').value.trim();
+            const names = namesText.split('\n')
+                .map(n => n.trim())
+                .filter(n => n);
+
+            // Validation
+            if (names.length === 0) {
+                showError('❌ Моля, въведете поне едно име за търсене.');
+                return;
+            }
+
+            if (names.length > MAX_NAMES) {
+                showError(`❌ Максимум ${MAX_NAMES} имена наведнъж. Въвели сте ${names.length} имена.`);
+                return;
+            }
+
+            // UI elements
+            const loading = document.getElementById('loading');
+            const results = document.getElementById('results');
+            const searchBtn = document.getElementById('searchBtn');
+            const loadingProgress = document.getElementById('loadingProgress');
+            
+            // Show loading
+            loading.classList.add('show');
+            results.classList.remove('show');
+            results.innerHTML = '';
+            searchBtn.disabled = true;
+
+            try {
+                const allResults = [];
+                
+                // Search for each name
+                for (let i = 0; i < names.length; i++) {
+                    const name = names[i];
+                    loadingProgress.textContent = `Търсене в Registry: ${name} (${i + 1} от ${names.length})`;
+                    
+                    try {
+                        // Call Edge Function
+                        const result = await searchRegistry(name);
+                        allResults.push(result);
+                    } catch (error) {
+                        console.error(`Error searching for ${name}:`, error);
+                        allResults.push({
+                            name: name,
+                            error: error.message,
+                            found: false
+                        });
+                    }
+                    
+                    // Small delay between requests
+                    if (i < names.length - 1) {
+                        await new Promise(r => setTimeout(r, 2000)); // 2 sec delay
+                    }
+                }
+
+                // Hide loading
+                loading.classList.remove('show');
+                searchBtn.disabled = false;
+
+                // Display results
+                if (allResults.every(r => !r.found || r.error)) {
+                    results.innerHTML = `
+                        <div class="no-results">
+                            <div class="no-results-icon">🔍</div>
+                            <h3>Няма намерени резултати</h3>
+                            <p>Не са намерени данни в Registry за въведените имена.<br>
+                            Моля, проверете дали имената са точни и опитайте отново.</p>
+                        </div>
+                    `;
+                    results.classList.add('show');
+                    return;
+                }
+
+                // Render results
+                results.innerHTML = allResults.map((result, index) => 
+                    renderResult(result, index + 1)
+                ).join('');
+                results.classList.add('show');
+
+                console.log(`✅ Завърши проверка за ${names.length} имена`);
+
+            } catch (error) {
+                loading.classList.remove('show');
+                searchBtn.disabled = false;
+                showError('🚫 Грешка при търсене: ' + error.message);
+                console.error('Error:', error);
+            }
+        }
+
+        function renderResult(result, resultNumber) {
+            if (result.error) {
+                return `
+                    <div class="owner-card">
+                        <div class="owner-header">
+                            <div class="owner-name">
+                                <div class="owner-number">${resultNumber}</div>
+                                <h2>${escapeHtml(result.name)}</h2>
+                            </div>
+                        </div>
+                        <div class="no-results">
+                            <p style="color: #e74c3c;">❌ Грешка: ${escapeHtml(result.error)}</p>
+                        </div>
+                    </div>
+                `;
+            }
+
+            if (!result.found || !result.person) {
+                return `
+                    <div class="owner-card">
+                        <div class="owner-header">
+                            <div class="owner-name">
+                                <div class="owner-number">${resultNumber}</div>
+                                <h2>${escapeHtml(result.name)}</h2>
+                            </div>
+                        </div>
+                        <div class="no-results">
+                            <p>Не са намерени резултати в Registry</p>
+                        </div>
+                    </div>
+                `;
+            }
+
+            const companies = result.companies || [];
+            
+            return `
+                <div class="owner-card">
+                    <div class="owner-header">
+                        <div class="owner-name">
+                            <div class="owner-number">${resultNumber}</div>
+                            <h2>${escapeHtml(result.name)}</h2>
+                        </div>
+                        <p style="color: #666; margin-top: 10px;">
+                            📊 Намерени ${result.searchResults} резултата в Registry
+                        </p>
+                    </div>
+
+                    <div class="companies-section">
+                        <h3>
+                            🏢 Фирми
+                            <span class="company-count">${companies.length}</span>
+                        </h3>
+                        ${companies.length === 0 
+                            ? '<p style="color: #666; padding: 20px;">Няма намерени фирми.</p>' 
+                            : companies.map((company, idx) => renderCompany(company, idx + 1)).join('')
+                        }
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderCompany(company, companyNumber) {
+            return `
+                <div class="company-item">
+                    <div class="company-name">${companyNumber}. ${escapeHtml(company.name || 'N/A')}</div>
+                    <div class="company-details">
+                        <div class="company-field">
+                            <div class="field-label">ЕИК</div>
+                            <div class="field-value">${escapeHtml(company.uic || 'N/A')}</div>
+                        </div>
+                        <div class="company-field">
+                            <div class="field-label">Правна форма</div>
+                            <div class="field-value">${escapeHtml(company.legal_form || 'N/A')}</div>
+                        </div>
+                        <div class="company-field">
+                            <div class="field-label">Адрес</div>
+                            <div class="field-value">${escapeHtml(company.location|| 'N/A')}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function clearForm() {
+            document.getElementById('names').value = '';
+            document.getElementById('results').classList.remove('show');
+            document.getElementById('results').innerHTML = '';
+            document.getElementById('errorMessage').classList.remove('show');
+        }
+
+        // Keyboard shortcuts
+        document.getElementById('names').addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.key === 'Enter') {
+                e.preventDefault();
+                startSearch();
+            }
+        });
+
+        // Auto-focus
+        window.addEventListener('load', function() {
+            document.getElementById('names').focus();
+        });
+    </script>
+</body>
+</html>

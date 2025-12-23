@@ -1,0 +1,234 @@
+{
+  "name": "SMS OTP Scraper (Sub-workflow)",
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "phone_number",
+              "type": "string",
+              "description": "Full phone number with country code (e.g., +447481793989)"
+            },
+            {
+              "name": "sms_url",
+              "type": "string",
+              "description": "Direct URL to SMS inbox on smstome (e.g., http://smstome.com/united-kingdom/phone/447481793989/sms/13384)"
+            },
+            {
+              "name": "expected_sender",
+              "type": "string",
+              "description": "Expected SMS sender name (e.g., 'Wallester')"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [240, 300],
+      "id": "trigger-subflow",
+      "name": "Workflow Trigger"
+    },
+    {
+      "parameters": {
+        "instructions": "You are an SMS scraping agent for smstome.com. Your task:\n\n1. Navigate to the SMS inbox URL provided: {{ $json.sms_url }}\n2. Login if needed using:\n   - Email: kirkomrk@gmail.com\n   - Password: zdraveibobi12\n3. Wait for page to load completely\n4. Find the MOST RECENT SMS from sender: {{ $json.expected_sender }}\n5. Extract the 6-digit OTP code from that SMS\n6. The OTP is typically in format: \"Your verification code is: 123456\" or similar\n7. Return ONLY the 6-digit code as a JSON object:\n{\n  \"otp_code\": \"123456\",\n  \"found\": true,\n  \"sms_text\": \"full SMS text here\"\n}\n\nIf no SMS found after waiting 10 seconds, refresh the page and check again.\nIf still not found, return:\n{\n  \"otp_code\": \"\",\n  \"found\": false,\n  \"error\": \"SMS not received\"\n}\n\nIMPORTANT: Return ONLY the JSON object, no additional text.",
+        "airtopProfileName": "smstome",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-airtop.airtopBrowserAgent",
+      "typeVersion": 1,
+      "position": [460, 300],
+      "id": "scrape-sms-otp",
+      "name": "Scrape SMS OTP",
+      "credentials": {
+        "airtopApi": {
+          "id": "airtop-cred",
+          "name": "Airtop account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse Airtop response and extract OTP code\nconst response = $json.response || $json.output || '';\n\nlet result = {\n  otp_code: '',\n  found: false,\n  error: ''\n};\n\ntry {\n  // Remove markdown code blocks if present\n  let jsonText = response.replace(/```json\\s*/g, '').replace(/```\\s*/g, '');\n  result = JSON.parse(jsonText);\n} catch (e) {\n  // Try to find JSON object in text\n  const match = response.match(/\\{[\\s\\S]*\\}/);\n  if (match) {\n    try {\n      result = JSON.parse(match[0]);\n    } catch (e2) {\n      // Try to extract 6-digit code directly from text\n      const codeMatch = response.match(/\\b\\d{6}\\b/);\n      if (codeMatch) {\n        result = {\n          otp_code: codeMatch[0],\n          found: true,\n          sms_text: response\n        };\n      } else {\n        result.error = 'Failed to parse OTP from response';\n      }\n    }\n  }\n}\n\nreturn {\n  json: {\n    phone_number: $('Workflow Trigger').item.json.phone_number,\n    otp_code: result.otp_code,\n    found: result.found,\n    sms_text: result.sms_text || '',\n    error: result.error || '',\n    scraped_at: new Date().toISOString()\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300],
+      "id": "parse-otp",
+      "name": "Parse OTP"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-found",
+              "leftValue": "={{ $json.found }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            },
+            {
+              "id": "condition-code-length",
+              "leftValue": "={{ $json.otp_code.length }}",
+              "rightValue": 6,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [900, 300],
+      "id": "check-otp-valid",
+      "name": "OTP Valid?"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "return-otp",
+              "name": "otp_code",
+              "value": "={{ $json.otp_code }}",
+              "type": "string"
+            },
+            {
+              "id": "return-phone",
+              "name": "phone_number",
+              "value": "={{ $json.phone_number }}",
+              "type": "string"
+            },
+            {
+              "id": "return-success",
+              "name": "success",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "return-message",
+              "name": "message",
+              "value": "SMS OTP retrieved successfully",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1120, 200],
+      "id": "return-success",
+      "name": "Return Success"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "return-error-otp",
+              "name": "otp_code",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "return-error-phone",
+              "name": "phone_number",
+              "value": "={{ $json.phone_number }}",
+              "type": "string"
+            },
+            {
+              "id": "return-error-success",
+              "name": "success",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "return-error-message",
+              "name": "message",
+              "value": "={{ $json.error || 'SMS OTP not found or invalid' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1120, 400],
+      "id": "return-error",
+      "name": "Return Error"
+    }
+  ],
+  "connections": {
+    "Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Scrape SMS OTP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape SMS OTP": {
+      "main": [
+        [
+          {
+            "node": "Parse OTP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse OTP": {
+      "main": [
+        [
+          {
+            "node": "OTP Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OTP Valid?": {
+      "main": [
+        [
+          {
+            "node": "Return Success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "id": "sms-otp-scraper",
+  "tags": []
+}

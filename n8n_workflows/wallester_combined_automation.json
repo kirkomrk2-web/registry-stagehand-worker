@@ -1,0 +1,685 @@
+{
+  "name": "Wallester Combined Automation (MAIN)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "wallester-automation",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [240, 400],
+      "id": "webhook-trigger",
+      "name": "Supabase Webhook",
+      "webhookId": "wallester-automation-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normalize Supabase webhook payload\n// Parse waiting_list and map owner details\n\nconst payload = $json.body || $json;\nconst record = payload.record || payload;\n\n// Parse waiting_list if it's a string\nlet waitingList = record.waiting_list || [];\nif (typeof waitingList === 'string') {\n  try {\n    waitingList = JSON.parse(waitingList);\n  } catch (e) {\n    console.error('Failed to parse waiting_list:', e);\n    waitingList = [];\n  }\n}\n\n// Sort businesses by ownership_percent descending\nif (Array.isArray(waitingList)) {\n  waitingList.sort((a, b) => (b.ownership_percent || 0) - (a.ownership_percent || 0));\n}\n\n// Extract owner details\nconst ownerFirstNameEn = record.owner_first_name_en || record.first_name_en || '';\nconst ownerLastNameEn = record.owner_last_name_en || record.last_name_en || '';\nconst ownerBirthdate = record.owner_birthdate || record.birthdate || '';\nconst referralUrl = record.referral_url || 'https://wallester.com/business/?ref=DEFAULT';\n\nreturn {\n  json: {\n    // Owner context\n    owner_id: record.id,\n    owner_full_name: record.full_name,\n    owner_first_name_en: ownerFirstNameEn,\n    owner_last_name_en: ownerLastNameEn,\n    owner_birthdate: ownerBirthdate,\n    referral_url: referralUrl,\n    \n    // Business list\n    waiting_list: waitingList,\n    total_businesses: waitingList.length,\n    \n    // Meta\n    processed_at: new Date().toISOString()\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 400],
+      "id": "normalize-data",
+      "name": "Normalize & Map Data"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Split out businesses from waiting_list into separate items\nconst owner = $json;\nconst waitingList = owner.waiting_list || [];\n\nif (!Array.isArray(waitingList) || waitingList.length === 0) {\n  return [];\n}\n\nreturn waitingList.map((business, index) => ({\n  json: {\n    // Owner context\n    owner_id: owner.owner_id,\n    owner_full_name: owner.owner_full_name,\n    owner_first_name_en: owner.owner_first_name_en,\n    owner_last_name_en: owner.owner_last_name_en,\n    owner_birthdate: owner.owner_birthdate,\n    referral_url: owner.referral_url,\n    \n    // Business details\n    business_index: index,\n    eik: business.EIK,\n    vat: business.VAT || `BG${business.EIK}`,\n    business_name_en: business.business_name_en,\n    business_name_wallester: business.business_name_wallester || business.business_name_en,\n    entity_type: business.entity_type,\n    ownership_percent: business.ownership_percent || 100,\n    \n    // NKID\n    nkid_code: business.nkid_code || '',\n    nkid_description: business.nkid_description || '',\n    \n    // Address\n    address_city: business.address_city || '',\n    address_postcode: business.address_postcode || '',\n    address_street: business.address_street || '',\n    address_number: business.address_number || '',\n    address_block: business.address_block || '',\n    address_flat: business.address_flat || '',\n    address_line: business.address_line || '',\n    \n    // Meta\n    last_updated: business.last_updated || '',\n    description_en: business.description_en || ''\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 400],
+      "id": "split-businesses",
+      "name": "Split Out Businesses"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "wallester_business_profiles",
+        "returnAll": false,
+        "options": {
+          "filter": "eik=eq.{{ $json.eik }}"
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [900, 400],
+      "id": "check-eik-exists",
+      "name": "Check EIK in Wallester DB",
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-cred",
+          "name": "Supabase API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-not-exists",
+              "leftValue": "={{ $json.length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1120, 400],
+      "id": "is-new-business",
+      "name": "Is New Business?"
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "sheetId": {
+          "__rl": true,
+          "value": "1xjBUp2i5PGb4L6WSkBHN8sG8qp5EUp3oxssuX6XE-tQ",
+          "mode": "id"
+        },
+        "range": "Sheet1",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [1340, 300],
+      "id": "read-phone-sheet",
+      "name": "Read Phone Numbers",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "google-sheets-cred",
+          "name": "Google Sheets OAuth2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Pick first available phone number from Google Sheet\n// Filter out already used numbers\n\nconst business = $('Is New Business?').item.json;\nconst sheetRows = $input.all();\n\n// Find first available number (status is empty or 'available')\nlet selectedPhone = null;\nlet selectedRowIndex = -1;\n\nfor (let i = 0; i < sheetRows.length; i++) {\n  const row = sheetRows[i].json;\n  const status = (row.status || '').toLowerCase().trim();\n  const number = row.number || row.phone_number || '';\n  \n  if (number && number.startsWith('+44') && (status === '' || status === 'available')) {\n    selectedPhone = number;\n    selectedRowIndex = i + 2; // +2 because sheet rows start at 1 and row 1 is header\n    break;\n  }\n}\n\nif (!selectedPhone) {\n  throw new Error('No available UK phone numbers in Google Sheet');\n}\n\n// Extract phone parts\nconst phoneCountryCode = '+44';\nconst phoneBody = selectedPhone.substring(3); // Remove +44\n\n// Generate email from business name\nconst businessSlug = (business.business_name_en || 'company')\n  .toLowerCase()\n  .replace(/[^a-z0-9]/g, '')\n  .substring(0, 15);\nconst randomDigits = Math.floor(10 + Math.random() * 90); // 2 digits\nconst emailAddress = `${businessSlug}${randomDigits}@workmail.pro`;\n\nreturn {\n  json: {\n    // Pass through all business data\n    ...business,\n    \n    // Phone selection\n    phone_number: selectedPhone,\n    phone_country_code: phoneCountryCode,\n    phone_body: phoneBody,\n    phone_sheet_row: selectedRowIndex,\n    \n    // Email generation\n    email_address: emailAddress,\n    email_username: `${businessSlug}${randomDigits}`,\n    \n    // SMS URL (will be needed for OTP scraping)\n    sms_url: `http://smstome.com/united-kingdom/phone/${selectedPhone.substring(1)}/sms/`,\n    \n    // Ready for automation\n    ready_for_automation: true\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1560, 300],
+      "id": "prepare-phone-email",
+      "name": "Select Phone & Generate Email"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "sheetId": {
+          "__rl": true,
+          "value": "1xjBUp2i5PGb4L6WSkBHN8sG8qp5EUp3oxssuX6XE-tQ",
+          "mode": "id"
+        },
+        "range": "Sheet1!B{{ $json.phone_sheet_row }}:D{{ $json.phone_sheet_row }}",
+        "options": {
+          "valueInputMode": "USER_ENTERED"
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [1780, 300],
+      "id": "mark-phone-reserved",
+      "name": "Mark Phone Reserved",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "google-sheets-cred",
+          "name": "Google Sheets OAuth2"
+        }
+      },
+      "extendsCredential": "read-phone-sheet"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "skip-eik",
+              "name": "status",
+              "value": "skipped",
+              "type": "string"
+            },
+            {
+              "id": "skip-reason",
+              "name": "reason",
+              "value": "EIK already registered in Wallester",
+              "type": "string"
+            },
+            {
+              "id": "skip-eik-val",
+              "name": "eik",
+              "value": "={{ $json.eik }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1340, 500],
+      "id": "skip-duplicate",
+      "name": "Skip Duplicate"
+    },
+    {
+      "parameters": {
+        "content": "## 📥 STEP 1: WEBHOOK & DATA NORMALIZATION\nReceives Supabase verified_owners webhook\nParses waiting_list and maps owner details",
+        "height": 240,
+        "width": 460,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [180, 280],
+      "id": "note-step1",
+      "name": "Note Step 1"
+    },
+    {
+      "parameters": {
+        "content": "## 🔄 STEP 2: BUSINESS ITERATION & DUPLICATE CHECK\nSplit businesses and check if EIK exists",
+        "height": 240,
+        "width": 500,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [640, 280],
+      "id": "note-step2",
+      "name": "Note Step 2"
+    },
+    {
+      "parameters": {
+        "content": "## 📞 STEP 3: PHONE & EMAIL PREPARATION\nGet phone from Google Sheet, generate email",
+        "height": 240,
+        "width": 500,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [1280, 180],
+      "id": "note-step3",
+      "name": "Note Step 3"
+    },
+    {
+      "parameters": {
+        "content": "## 🤖 STEP 4: AIRTOP BROWSER AUTOMATION\nStarts here - see Airtop nodes below →",
+        "height": 200,
+        "width": 1400,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [1860, 180],
+      "id": "note-step4",
+      "name": "Note Step 4"
+    },
+    {
+      "parameters": {
+        "instructions": "You are a Wallester business registration automation agent. Your task:\n\n## STEP 1: Navigate and Start\n1. Navigate to referral URL: {{ $json.referral_url }}\n2. Wait for page load\n3. Handle cookie popup if it appears - click Accept/OK\n4. Look for \"Start\" button in the header\n5. Click the Start button\n\n## STEP 2: Initial Registration Form\n6. Wait for form to load\n7. Fill in these fields:\n   - Business Name (English): {{ $json.business_name_wallester }}\n   - Country: Select \"Bulgaria\" from dropdown\n   - Phone Country Code: Select \"+44\" (UK)\n   - Phone Number: Type {{ $json.phone_body }} (WITHOUT the +44 prefix)\n8. Click Submit or \"Send SMS\" button to request SMS OTP\n9. Wait for button state change (don't be aggressive)\n10. Return JSON:\n{\n  \"step_completed\": \"initial_form\",\n  \"success\": true,\n  \"sms_requested\": true,\n  \"next_step\": \"wait_for_sms_otp\"\n}\n\nIMPORTANT:\n- Type text character by character like a human, not copy-paste\n- Wait 1-2 seconds between form fields\n- Don't click buttons multiple times\n- Return ONLY JSON, no additional text",
+        "airtopProfileName": "wallester",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-airtop.airtopBrowserAgent",
+      "typeVersion": 1,
+      "position": [2000, 300],
+      "id": "airtop-step1-initial-form",
+      "name": "Airtop: Initial Form (Phone)",
+      "credentials": {
+        "airtopApi": {
+          "id": "airtop-cred",
+          "name": "Airtop account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "sms-otp-scraper",
+          "mode": "id"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "phone_number": "={{ $json.phone_number }}",
+            "sms_url": "={{ $json.sms_url }}",
+            "expected_sender": "Wallester"
+          }
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [2220, 300],
+      "id": "call-sms-scraper",
+      "name": "Get SMS OTP"
+    },
+    {
+      "parameters": {
+        "instructions": "You are continuing the Wallester registration. Your task:\n\n## STEP 3: Submit SMS OTP\n1. You should see a form waiting for SMS verification code\n2. Find the 6-digit code input field\n3. Type this code character by character: {{ $('Get SMS OTP').item.json.otp_code }}\n4. Click Submit or Next button\n5. Wait for page to load (may take 5-10 seconds)\n6. The page should now ask for an email address\n7. Return JSON:\n{\n  \"step_completed\": \"sms_otp_submitted\",\n  \"success\": true,\n  \"email_field_visible\": true,\n  \"next_step\": \"enter_email\"\n}\n\nIMPORTANT:\n- Type code character by character with small delays\n- Wait for page transitions\n- Return ONLY JSON",
+        "airtopProfileName": "wallester",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-airtop.airtopBrowserAgent",
+      "typeVersion": 1,
+      "position": [2440, 300],
+      "id": "airtop-step2-sms-otp",
+      "name": "Airtop: Submit SMS OTP"
+    },
+    {
+      "parameters": {
+        "instructions": "You are continuing the Wallester registration. Your task:\n\n## STEP 4: Enter Email and Request Email OTP\n1. Find the email input field\n2. Type this email character by character: {{ $('Select Phone & Generate Email').item.json.email_address }}\n3. Click Submit or \"Send verification email\" button\n4. Wait for button state change\n5. Return JSON:\n{\n  \"step_completed\": \"email_entered\",\n  \"success\": true,\n  \"email_otp_requested\": true,\n  \"next_step\": \"wait_for_email_otp\"\n}\n\nIMPORTANT:\n- Type email naturally, character by character\n- Don't copy-paste\n- Wait for confirmation\n- Return ONLY JSON",
+        "airtopProfileName": "wallester",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-airtop.airtopBrowserAgent",
+      "typeVersion": 1,
+      "position": [2660, 300],
+      "id": "airtop-step3-email-entry",
+      "name": "Airtop: Enter Email"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "email-otp-scraper",
+          "mode": "id"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "email_address": "={{ $('Select Phone & Generate Email').item.json.email_address }}",
+            "expected_sender": "Wallester",
+            "max_wait_seconds": 90
+          }
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [2880, 300],
+      "id": "call-email-scraper",
+      "name": "Get Email OTP"
+    },
+    {
+      "parameters": {
+        "instructions": "You are continuing the Wallester registration. Your task:\n\n## STEP 5: Submit Email OTP\n1. Find the email verification code input field\n2. Type this 6-digit code: {{ $('Get Email OTP').item.json.otp_code }}\n3. Click Submit or Next button\n4. Wait for page to load and refresh (may take several seconds)\n5. The page should redirect to the main business details form\n6. Return JSON:\n{\n  \"step_completed\": \"email_otp_submitted\",\n  \"success\": true,\n  \"redirected_to_form\": true,\n  \"next_step\": \"fill_business_details\"\n}\n\nIMPORTANT:\n- Type code carefully\n- Wait for redirect\n- Return ONLY JSON",
+        "airtopProfileName": "wallester",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-airtop.airtopBrowserAgent",
+      "typeVersion": 1,
+      "position": [3100, 300],
+      "id": "airtop-step4-email-otp",
+      "name": "Airtop: Submit Email OTP"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare business details for final form filling\nconst business = $('Select Phone & Generate Email').item.json;\n\n// Build full address string\nlet addressParts = [];\nif (business.address_street) addressParts.push(business.address_street);\nif (business.address_number) addressParts.push(`No. ${business.address_number}`);\nif (business.address_block) addressParts.push(`Block ${business.address_block}`);\nif (business.address_flat) addressParts.push(`Apt. ${business.address_flat}`);\nif (business.address_housing_estate) addressParts.push(business.address_housing_estate);\n\nconst fullAddress = addressParts.length > 0 \n  ? addressParts.join(', ')\n  : business.address_line || 'Address not available';\n\nreturn {\n  json: {\n    // Business identification\n    business_name_en: business.business_name_wallester,\n    eik: business.eik,\n    vat: business.vat,\n    \n    // Contact\n    phone_number: business.phone_number,\n    email_address: business.email_address,\n    \n    // Address\n    city: business.address_city,\n    postcode: business.address_postcode,\n    address: fullAddress,\n    \n    // Business activity\n    nkid_code: business.nkid_code,\n    nkid_description: business.nkid_description,\n    description_en: business.description_en || `${business.entity_type} company engaged in business activities`,\n    \n    // Owner details\n    owner_first_name_en: business.owner_first_name_en,\n    owner_last_name_en: business.owner_last_name_en,\n    owner_birthdate: business.owner_birthdate,\n    ownership_percent: business.ownership_percent,\n    \n    // Role selection hint\n    owner_role_hint: 'beneficial owner and manager',\n    \n    // Original data for writeback\n    original_business: business\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3320, 300],
+      "id": "prepare-business-details",
+      "name": "Prepare Business Details"
+    },
+    {
+      "parameters": {
+        "instructions": "You are completing the Wallester business registration. Your task:\n\n## STEP 6: Fill Complete Business Details Form\n\nThe form has multiple sections. Fill them carefully:\n\n### Business Information:\n- Business Name: {{ $json.business_name_en }} (may be pre-filled)\n- EIK (Company Registration Number): {{ $json.eik }}\n- VAT Number: {{ $json.vat }}\n- Phone: {{ $json.phone_number }} (may be pre-filled)\n- Email: {{ $json.email_address }} (may be pre-filled)\n\n### Address:\n- City: {{ $json.city }}\n- Postal Code: {{ $json.postcode }}\n- Street Address: {{ $json.address }}\n\n### Business Activity:\n- Category/NKID: Search and select category related to \"{{ $json.nkid_description }}\"\n- Short Description: {{ $json.description_en }}\n\n### Owner/Beneficial Owner Information:\n- First Name: {{ $json.owner_first_name_en }}\n- Last Name: {{ $json.owner_last_name_en }}\n- Date of Birth: {{ $json.owner_birthdate }}\n- Ownership Percentage: {{ $json.ownership_percent }}%\n- Role: Select option that includes \"{{ $json.owner_role_hint }}\"\n- Contact Phone: {{ $json.phone_number }}\n- Contact Email: {{ $json.email_address }}\n\n## Instructions:\n1. Fill each field character by character like a human\n2. Use Tab key to move between fields naturally\n3. For dropdowns, type to search then select\n4. Wait 1-2 seconds between sections\n5. Review the form before submitting\n6. Click Final Submit button\n7. Wait for confirmation page (may take 10-15 seconds)\n8. Take note of any confirmation message or reference number\n\n## Return this JSON when done:\n{\n  \"step_completed\": \"business_details_submitted\",\n  \"success\": true,\n  \"confirmation_visible\": true,\n  \"reference_number\": \"<any reference number shown>\",\n  \"next_step\": \"complete\"\n}\n\nIMPORTANT:\n- Be patient with page loads\n- Type naturally, don't copy-paste\n- Verify each field after filling\n- Return ONLY JSON",
+        "airtopProfileName": "wallester",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-airtop.airtopBrowserAgent",
+      "typeVersion": 1,
+      "position": [3540, 300],
+      "id": "airtop-step5-business-form",
+      "name": "Airtop: Fill Business Details"
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "tableId": "wallester_business_profiles",
+        "dataMode": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "owner_id",
+              "fieldValue": "={{ $('Select Phone & Generate Email').item.json.owner_id }}"
+            },
+            {
+              "fieldId": "eik",
+              "fieldValue": "={{ $json.eik }}"
+            },
+            {
+              "fieldId": "business_name",
+              "fieldValue": "={{ $json.business_name_en }}"
+            },
+            {
+              "fieldId": "phone_used",
+              "fieldValue": "={{ $json.phone_number }}"
+            },
+            {
+              "fieldId": "email_used",
+              "fieldValue": "={{ $json.email_address }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "completed"
+            },
+            {
+              "fieldId": "reference_number",
+              "fieldValue": "={{ $('Airtop: Fill Business Details').item.json.response?.reference_number || '' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [3760, 300],
+      "id": "save-to-supabase",
+      "name": "Save to Supabase"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "sheetId": {
+          "__rl": true,
+          "value": "1xjBUp2i5PGb4L6WSkBHN8sG8qp5EUp3oxssuX6XE-tQ",
+          "mode": "id"
+        },
+        "range": "Sheet1!B{{ $('Select Phone & Generate Email').item.json.phone_sheet_row }}:D{{ $('Select Phone & Generate Email').item.json.phone_sheet_row }}",
+        "options": {
+          "valueInputMode": "USER_ENTERED",
+          "valueRenderOption": "FORMATTED_VALUE"
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [3980, 300],
+      "id": "mark-phone-used",
+      "name": "Mark Phone Used",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "google-sheets-cred",
+          "name": "Google Sheets OAuth2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "final-status",
+              "name": "status",
+              "value": "completed",
+              "type": "string"
+            },
+            {
+              "id": "final-eik",
+              "name": "eik",
+              "value": "={{ $('Prepare Business Details').item.json.eik }}",
+              "type": "string"
+            },
+            {
+              "id": "final-business",
+              "name": "business_name",
+              "value": "={{ $('Prepare Business Details').item.json.business_name_en }}",
+              "type": "string"
+            },
+            {
+              "id": "final-phone",
+              "name": "phone_used",
+              "value": "={{ $('Prepare Business Details').item.json.phone_number }}",
+              "type": "string"
+            },
+            {
+              "id": "final-email",
+              "name": "email_used",
+              "value": "={{ $('Prepare Business Details').item.json.email_address }}",
+              "type": "string"
+            },
+            {
+              "id": "final-message",
+              "name": "message",
+              "value": "Wallester business profile created successfully",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [4200, 300],
+      "id": "final-output",
+      "name": "Final Success Output"
+    }
+  ],
+  "connections": {
+    "Supabase Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalize & Map Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize & Map Data": {
+      "main": [
+        [
+          {
+            "node": "Split Out Businesses",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out Businesses": {
+      "main": [
+        [
+          {
+            "node": "Check EIK in Wallester DB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check EIK in Wallester DB": {
+      "main": [
+        [
+          {
+            "node": "Is New Business?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is New Business?": {
+      "main": [
+        [
+          {
+            "node": "Read Phone Numbers",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Skip Duplicate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Phone Numbers": {
+      "main": [
+        [
+          {
+            "node": "Select Phone & Generate Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Select Phone & Generate Email": {
+      "main": [
+        [
+          {
+            "node": "Mark Phone Reserved",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Phone Reserved": {
+      "main": [
+        [
+          {
+            "node": "Airtop: Initial Form (Phone)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Airtop: Initial Form (Phone)": {
+      "main": [
+        [
+          {
+            "node": "Get SMS OTP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get SMS OTP": {
+      "main": [
+        [
+          {
+            "node": "Airtop: Submit SMS OTP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Airtop: Submit SMS OTP": {
+      "main": [
+        [
+          {
+            "node": "Airtop: Enter Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Airtop: Enter Email": {
+      "main": [
+        [
+          {
+            "node": "Get Email OTP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Email OTP": {
+      "main": [
+        [
+          {
+            "node": "Airtop: Submit Email OTP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Airtop: Submit Email OTP": {
+      "main": [
+        [
+          {
+            "node": "Prepare Business Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Business Details": {
+      "main": [
+        [
+          {
+            "node": "Airtop: Fill Business Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Airtop: Fill Business Details": {
+      "main": [
+        [
+          {
+            "node": "Save to Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to Supabase": {
+      "main": [
+        [
+          {
+            "node": "Mark Phone Used",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Phone Used": {
+      "main": [
+        [
+          {
+            "node": "Final Success Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "id": "wallester-combined-automation",
+  "tags": []
+}

@@ -1,0 +1,184 @@
+{
+  "name": "Supabase Verified Owners → n8n",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "supabase-verified-owners",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [240, 300],
+      "id": "webhook-trigger",
+      "name": "Webhook",
+      "webhookId": "2d58fa7a-0267-4e8a-9d1b-38f6294a1bc8"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normalize Supabase webhook payload\n// Extract record to root level for easier access\n\nconst payload = $json.body || $json;\nconst eventType = payload.type || 'UNKNOWN';\nconst table = payload.table || '';\nconst schema = payload.schema || 'public';\nconst record = payload.record || {};\nconst oldRecord = payload.old_record || null;\n\n// Return normalized item with all fields at root\nreturn {\n  json: {\n    eventType,\n    table,\n    schema,\n    old: oldRecord,\n    ...record  // Spread all verified_owners columns\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300],
+      "id": "normalize-payload",
+      "name": "Normalize Payload"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-insert",
+              "leftValue": "={{ $json.eventType }}",
+              "rightValue": "INSERT",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 300],
+      "id": "check-event-type",
+      "name": "Is INSERT?"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Explode waiting_list into separate items (one per company)\n// This allows downstream nodes to process each company individually\n\nconst owner = $json;\nconst waitingList = owner.waiting_list || [];\n\n// If no companies in waiting_list, return empty (will stop flow)\nif (!Array.isArray(waitingList) || waitingList.length === 0) {\n  return [];\n}\n\n// Map each company to a separate item\nreturn waitingList.map((company, index) => ({\n  json: {\n    // Owner context\n    owner_id: owner.id,\n    owner_full_name: owner.full_name,\n    owner_first_name_en: owner.owner_first_name_en,\n    owner_last_name_en: owner.owner_last_name_en,\n    owner_birthdate: owner.owner_birthdate,\n    \n    // Event context\n    eventType: owner.eventType,\n    \n    // Company details (from waiting_list)\n    company_index: index,\n    eik: company.EIK,\n    vat: company.VAT,\n    business_name_en: company.business_name_en,\n    business_name_wallester: company.business_name_wallester,\n    entity_type: company.entity_type,\n    ownership_percent: company.ownership_percent,\n    \n    // NKID\n    nkid_code: company.nkid_code,\n    nkid_description: company.nkid_description,\n    \n    // Address\n    address_line: company.address_line,\n    address_street: company.address_street,\n    address_block: company.address_block,\n    address_housing_estate: company.address_housing_estate,\n    address_city: company.address_city,\n    address_postcode: company.address_postcode,\n    \n    // Meta\n    last_updated: company.last_updated\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 200],
+      "id": "explode-companies",
+      "name": "Explode Companies"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "summary-owner",
+              "name": "summary_owner",
+              "value": "={{ $json.owner_full_name }}",
+              "type": "string"
+            },
+            {
+              "id": "summary-eik",
+              "name": "summary_eik",
+              "value": "={{ $json.eik }}",
+              "type": "string"
+            },
+            {
+              "id": "summary-business",
+              "name": "summary_business_wallester",
+              "value": "={{ $json.business_name_wallester }}",
+              "type": "string"
+            },
+            {
+              "id": "summary-type",
+              "name": "summary_entity_type",
+              "value": "={{ $json.entity_type }}",
+              "type": "string"
+            },
+            {
+              "id": "summary-nkid",
+              "name": "summary_nkid",
+              "value": "={{ $json.nkid_code }}: {{ $json.nkid_description }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1120, 200],
+      "id": "output-summary",
+      "name": "Output Summary"
+    },
+    {
+      "parameters": {
+        "jsCode": "// For UPDATE events - just log for now\n// You can add logic here to handle specific update scenarios\n\nconst owner = $json;\n\nconsole.log(`[n8n] UPDATE event for owner: ${owner.full_name}`);\n\nreturn {\n  json: {\n    message: 'UPDATE event logged',\n    owner_id: owner.id,\n    owner_name: owner.full_name,\n    updated_at: owner.updated_at\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 400],
+      "id": "handle-update",
+      "name": "Handle UPDATE"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalize Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Payload": {
+      "main": [
+        [
+          {
+            "node": "Is INSERT?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is INSERT?": {
+      "main": [
+        [
+          {
+            "node": "Explode Companies",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handle UPDATE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Explode Companies": {
+      "main": [
+        [
+          {
+            "node": "Output Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "instanceId": "2e65f128d89f0d2f630d1e1845f016bd03bb034e83676bfdaafdc6fd6e9aec0f"
+  },
+  "id": "verified-owners-n8n",
+  "tags": []
+}

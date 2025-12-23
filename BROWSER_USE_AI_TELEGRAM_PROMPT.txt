@@ -263,4 +263,3 @@ Web: walle.bg
 **🔗 Resources:**
 - Full design: TELEGRAM_BROWSER_AUTOMATION.md
 - Test script: test_telegram_browser.mjs
-- Dashboard: HOSTINGER_DASHBOARD_DESIGN.md

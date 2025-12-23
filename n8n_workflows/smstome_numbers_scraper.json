@@ -1,0 +1,145 @@
+{
+  "name": "SMS Numbers - Scrape & Sync from smstome",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 6
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300],
+      "id": "schedule-trigger",
+      "name": "Every 6 Hours"
+    },
+    {
+      "parameters": {
+        "instructions": "You are a web scraping agent for smstome.com. Your task:\n\n1. Navigate to smstome.com\n2. Login using:\n   - Email: kirkomrk@gmail.com\n   - Password: zdraveibobi12\n3. Once logged in, find the section showing available UK (+44) phone numbers\n4. Extract the LAST 10 available UK phone numbers with their details\n5. For each phone number, extract:\n   - Full phone number (format: +447481793989)\n   - Direct SMS URL to view messages (format: http://smstome.com/united-kingdom/phone/447481793989/sms/XXXXX)\n   - Country code (+44)\n   - Country (UK)\n\n6. Return the data as JSON array:\n[\n  {\n    \"phone_number\": \"+447481793989\",\n    \"country_code\": \"+44\",\n    \"country\": \"UK\",\n    \"sms_url\": \"http://smstome.com/united-kingdom/phone/447481793989/sms/13384\"\n  },\n  ...\n]\n\nIMPORTANT: Return ONLY the JSON array, no additional text.",
+        "airtopProfileName": "smstome",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-airtop.airtopBrowserAgent",
+      "typeVersion": 1,
+      "position": [460, 300],
+      "id": "scrape-numbers",
+      "name": "Scrape smstome Numbers",
+      "credentials": {
+        "airtopApi": {
+          "id": "airtop-cred",
+          "name": "Airtop account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse Airtop response and prepare for Supabase insert\nconst response = $json.response || $json.output || '';\n\n// Try to extract JSON array from response\nlet numbers = [];\ntry {\n  // Remove markdown code blocks if present\n  let jsonText = response.replace(/```json\\s*/g, '').replace(/```\\s*/g, '');\n  numbers = JSON.parse(jsonText);\n} catch (e) {\n  // Try to find JSON array in text\n  const match = response.match(/\\[\\s*\\{[\\s\\S]*\\}\\s*\\]/);\n  if (match) {\n    try {\n      numbers = JSON.parse(match[0]);\n    } catch (e2) {\n      console.error('Failed to parse numbers:', e2);\n      return [];\n    }\n  }\n}\n\nif (!Array.isArray(numbers) || numbers.length === 0) {\n  console.log('No numbers extracted');\n  return [];\n}\n\n// Return each number as separate item for Supabase insert\nreturn numbers.map(num => ({\n  json: {\n    phone_number: num.phone_number,\n    country_code: num.country_code,\n    country: num.country,\n    platform: 'smstome',\n    sms_url: num.sms_url,\n    status: 'available'\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300],
+      "id": "parse-numbers",
+      "name": "Parse Numbers"
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "tableId": "sms_numbers_pool",
+        "dataMode": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "phone_number",
+              "fieldValue": "={{ $json.phone_number }}"
+            },
+            {
+              "fieldId": "country_code",
+              "fieldValue": "={{ $json.country_code }}"
+            },
+            {
+              "fieldId": "country",
+              "fieldValue": "={{ $json.country }}"
+            },
+            {
+              "fieldId": "platform",
+              "fieldValue": "={{ $json.platform }}"
+            },
+            {
+              "fieldId": "sms_url",
+              "fieldValue": "={{ $json.sms_url }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "={{ $json.status }}"
+            }
+          ]
+        },
+        "options": {
+          "queryName": "upsert",
+          "onConflict": "phone_number"
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [900, 300],
+      "id": "insert-to-supabase",
+      "name": "Insert to Supabase",
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-cred",
+          "name": "Supabase API account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "summary-count",
+              "name": "numbers_added",
+              "value": "={{ $itemIndex + 1 }}",
+              "type": "number"
+            },
+            {
+              "id": "summary-phone",
+              "name": "phone_number",
+              "value": "={{ $json.phone_number }}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1120, 300],
+      "id": "output-summary",
+      "name": "Output"
+    }
+  ],
+  "connections": {
+    "Every 6 Hours": {
+      "main": [[{ "node": "Scrape smstome Numbers", "type": "main", "index": 0 }]]
+    },
+    "Scrape smstome Numbers": {
+      "main": [[{ "node": "Parse Numbers", "type": "main", "index": 0 }]]
+    },
+    "Parse Numbers": {
+      "main": [[{ "node": "Insert to Supabase", "type": "main", "index": 0 }]]
+    },
+    "Insert to Supabase": {
+      "main": [[{ "node": "Output", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "id": "smstome-scraper",
+  "tags": []
+}

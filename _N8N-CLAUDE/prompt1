@@ -1,0 +1,94 @@
+## What I'm Building
+[ONE SENTENCE: What does your app let users do?]
+---
+## 1. MY N8N AUTOMATION (Fill This In)
+What it does: [WHAT DOES YOUR WORKFLOW DO?]
+Input: [WHAT DOES A USER SUBMIT? URL? TEXT? FILE?]
+Output: [WHAT COMES BACK? JSON? TEXT? REPORT?]
+How long it takes: [SECONDS? MINUTES?]
+Webhook URL: [PASTE YOUR N8N WEBHOOK URL OR "will add
+later"]
+---
+## 2. FRONTEND ✓ Pre-configured
+Framework: Next.js 14 with App Router (NOT Pages Router)
+Styling: Tailwind CSS
+Why: Frontend + API in one project, deploys easily, AI knows
+it well
+Pages needed:
+- / (landing page)
+- /login
+- /signup
+- /dashboard (list past jobs, submit new ones)
+- /dashboard/[id] (view single result)
+---
+## 3. BACKEND / API ✓ Pre-configuredUsing: Next.js API Routes (built into Next.js)
+Why: No separate backend server to manage
+Endpoints needed:
+- POST /api/jobs — create job, trigger n8n
+- GET /api/jobs/[id] — get job status/results
+- POST /api/webhooks/n8n — receive results from n8n
+---
+## 4. DATABASE ✓ Pre-configured
+Using: Supabase (Postgres)
+Why: Free tier, great dashboard, auth included
+Tables needed:
+- profiles (user info)
+- jobs (status, input, output, timestamps)
+Row Level Security: Users can only see their own jobs
+---
+## 5. AUTH ✓ Pre-configured
+Using: Supabase Auth
+Why: Comes with database, handles email/password + OAuth
+Flow:
+- Sign up → create profile
+- Log in → access dashboard
+- Protected routes redirect to /login if not authenticated
+---
+## 6. HOSTING ✓ Pre-configured
+App: Vercel (free tier)Why: Made for Next.js, push to deploy, handles SSL
+n8n: Already self-hosted (no changes needed)
+Domain: [YOUR DOMAIN OR "will use Vercel default for now"]
+---
+## 7. N8N ↔ APP CONNECTION ✓ Pre-configured
+How it works:
+1. User submits input on your site
+2. Your app creates job record (status: pending)
+3. Your app calls n8n webhook with { job_id, input }
+4. n8n does the work
+5. n8n calls YOUR app back at /api/webhooks/n8n with results
+6. Your app updates job record (status: completed)
+7. Frontend shows results to user
+Webhook secret: [GENERATE A RANDOM STRING FOR SECURITY]
+---
+## 8. ENVIRONMENT VARIABLES ✓ Pre-configured
+You'll need to set these up (Claude will help):
+```
+# Supabase (get from Supabase dashboard)
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+# n8n
+N8N_WEBHOOK_URL=
+N8N_WEBHOOK_SECRET=
+```---
+# WHAT TO DO WITH THIS
+1. Fill in the blanks above (just section 1 really)
+2. Open Claude Code in an empty project folder
+3. Paste this entire file and say:
+"Here's my CLAUDE.md blueprint for a SaaS I'm building
+around my n8n automation. Review it, ask me any clarifying
+questions about my automation, then help me flesh out the
+database schema, file structure, and anything else before we
+start coding."
+4. Work with Claude to complete the blueprint
+5. Then start building step by step
+---
+# SECTIONS CLAUDE WILL HELP COMPLETE
+## Database Schema (SQL)
+[Claude will write this based on your automation]
+## File Structure
+[Claude will map this out]
+## API Request/Response Examples
+[Claude will detail these]
+## n8n Workflow Setup
+[Claude will explain how to configure your n8n webhook]

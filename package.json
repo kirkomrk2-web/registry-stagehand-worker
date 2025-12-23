@@ -15,10 +15,15 @@
     "@browserbasehq/stagehand": "^3.0.3",
     "@supabase/supabase-js": "^2.84.0",
     "dotenv": "^16.6.1",
+    "jsonwebtoken": "^9.0.3",
+    "socks-proxy-agent": "^8.0.5",
     "zod": "^3.25.67"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": ""
+  "description": "",
+  "devDependencies": {
+    "https-proxy-agent": "^7.0.6"
+  }
 }

@@ -1,0 +1,240 @@
+{
+  "name": "Email OTP Scraper (Sub-workflow)",
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "email_address",
+              "type": "string",
+              "description": "Email address to check for OTP (e.g., company123@workmail.pro)"
+            },
+            {
+              "name": "expected_sender",
+              "type": "string",
+              "description": "Expected email sender (e.g., 'Wallester' or 'noreply@wallester.com')"
+            },
+            {
+              "name": "max_wait_seconds",
+              "type": "number",
+              "description": "Maximum seconds to wait for email (default: 60)"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [240, 300],
+      "id": "trigger-subflow",
+      "name": "Workflow Trigger"
+    },
+    {
+      "parameters": {
+        "instructions": "You are an email verification code scraping agent for workmail.pro webmail. Your task:\n\n1. Navigate to workmail.pro webmail interface\n2. Access the inbox for email: {{ $json.email_address }}\n   - workmail.pro typically has a web interface where you can check emails by username (before @)\n   - Username is the part before @ in the email address\n3. Wait for page to load completely\n4. Look for the MOST RECENT email from sender containing: {{ $json.expected_sender }}\n5. Open that email and extract the 6-digit OTP/verification code\n6. The OTP is typically in format: \"Your verification code is: 123456\" or \"Verification code: 123456\"\n7. Return ONLY the 6-digit code as a JSON object:\n{\n  \"otp_code\": \"123456\",\n  \"found\": true,\n  \"email_subject\": \"subject of the email\",\n  \"email_body_excerpt\": \"excerpt from email body\"\n}\n\nIf no email found after waiting {{ $json.max_wait_seconds || 60 }} seconds, refresh and check again.\nIf still not found, return:\n{\n  \"otp_code\": \"\",\n  \"found\": false,\n  \"error\": \"Email not received within timeout period\"\n}\n\nIMPORTANT: Return ONLY the JSON object, no additional text.",
+        "airtopProfileName": "workmail",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-airtop.airtopBrowserAgent",
+      "typeVersion": 1,
+      "position": [460, 300],
+      "id": "scrape-email-otp",
+      "name": "Scrape Email OTP",
+      "credentials": {
+        "airtopApi": {
+          "id": "airtop-cred",
+          "name": "Airtop account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse Airtop response and extract email OTP code\nconst response = $json.response || $json.output || '';\n\nlet result = {\n  otp_code: '',\n  found: false,\n  error: '',\n  email_subject: '',\n  email_body_excerpt: ''\n};\n\ntry {\n  // Remove markdown code blocks if present\n  let jsonText = response.replace(/```json\\s*/g, '').replace(/```\\s*/g, '');\n  result = JSON.parse(jsonText);\n} catch (e) {\n  // Try to find JSON object in text\n  const match = response.match(/\\{[\\s\\S]*\\}/);\n  if (match) {\n    try {\n      result = JSON.parse(match[0]);\n    } catch (e2) {\n      // Try to extract 6-digit code directly from text\n      const codeMatch = response.match(/\\b\\d{6}\\b/);\n      if (codeMatch) {\n        result = {\n          otp_code: codeMatch[0],\n          found: true,\n          email_subject: 'Extracted from raw text',\n          email_body_excerpt: response.substring(0, 200)\n        };\n      } else {\n        result.error = 'Failed to parse OTP from email response';\n      }\n    }\n  }\n}\n\nreturn {\n  json: {\n    email_address: $('Workflow Trigger').item.json.email_address,\n    otp_code: result.otp_code,\n    found: result.found,\n    email_subject: result.email_subject || '',\n    email_body_excerpt: result.email_body_excerpt || '',\n    error: result.error || '',\n    scraped_at: new Date().toISOString()\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300],
+      "id": "parse-email-otp",
+      "name": "Parse Email OTP"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-found",
+              "leftValue": "={{ $json.found }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            },
+            {
+              "id": "condition-code-length",
+              "leftValue": "={{ $json.otp_code.length }}",
+              "rightValue": 6,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [900, 300],
+      "id": "check-email-otp-valid",
+      "name": "Email OTP Valid?"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "return-otp",
+              "name": "otp_code",
+              "value": "={{ $json.otp_code }}",
+              "type": "string"
+            },
+            {
+              "id": "return-email",
+              "name": "email_address",
+              "value": "={{ $json.email_address }}",
+              "type": "string"
+            },
+            {
+              "id": "return-success",
+              "name": "success",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "return-message",
+              "name": "message",
+              "value": "Email OTP retrieved successfully",
+              "type": "string"
+            },
+            {
+              "id": "return-subject",
+              "name": "email_subject",
+              "value": "={{ $json.email_subject }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1120, 200],
+      "id": "return-success",
+      "name": "Return Success"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "return-error-otp",
+              "name": "otp_code",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "return-error-email",
+              "name": "email_address",
+              "value": "={{ $json.email_address }}",
+              "type": "string"
+            },
+            {
+              "id": "return-error-success",
+              "name": "success",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "return-error-message",
+              "name": "message",
+              "value": "={{ $json.error || 'Email OTP not found or invalid' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1120, 400],
+      "id": "return-error",
+      "name": "Return Error"
+    }
+  ],
+  "connections": {
+    "Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Scrape Email OTP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape Email OTP": {
+      "main": [
+        [
+          {
+            "node": "Parse Email OTP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Email OTP": {
+      "main": [
+        [
+          {
+            "node": "Email OTP Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email OTP Valid?": {
+      "main": [
+        [
+          {
+            "node": "Return Success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "id": "email-otp-scraper",
+  "tags": []
+}
