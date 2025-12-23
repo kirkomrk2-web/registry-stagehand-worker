@@ -1,0 +1,88 @@
+<section class="hero glass-section" aria-labelledby="HeroHeading" style="background-image: url('{{ section.settings.image | image_url }}')">
+  <div class="hero-overlay"></div>
+  <div class="container hero-grid">
+    <div class="hero-content" data-animate="fade">
+      <p class="eyebrow">{{ section.settings.eyebrow }}</p>
+      <h1 id="HeroHeading" class="headline">{{ section.settings.title }}</h1>
+      <p class="subhead">{{ section.settings.subtitle }}</p>
+      <a class="button primary" href="{{ section.settings.cta_link }}">{{ section.settings.cta_label }}</a>
+    </div>
+    <div class="hero-cards" data-animate="fade">
+      {% for block in section.blocks %}
+        <div class="glass-card hero-card">
+          <h3>{{ block.settings.title }}</h3>
+          <p>{{ block.settings.text }}</p>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Герой секция",
+  "settings": [
+    {
+      "type": "text",
+      "id": "eyebrow",
+      "label": "Етикет",
+      "default": "Професионални консултантски услуги"
+    },
+    {
+      "type": "text",
+      "id": "title",
+      "label": "Заглавие",
+      "default": "Вашите консултантски партньори"
+    },
+    {
+      "type": "textarea",
+      "id": "subtitle",
+      "label": "Подзаглавие",
+      "default": "Експертни решения за развитието на вашия бизнес"
+    },
+    {
+      "type": "image_picker",
+      "id": "image",
+      "label": "Фоново изображение"
+    },
+    {
+      "type": "text",
+      "id": "cta_label",
+      "label": "Текст на бутона",
+      "default": "Свържете се с нас"
+    },
+    {
+      "type": "url",
+      "id": "cta_link",
+      "label": "Връзка на бутона",
+      "default": "/pages/contact"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "card",
+      "name": "Стъклена карта",
+      "settings": [
+        {
+          "type": "text",
+          "id": "title",
+          "label": "Заглавие",
+          "default": "Стратегическа яснота"
+        },
+        {
+          "type": "textarea",
+          "id": "text",
+          "label": "Текст",
+          "default": "Създаваме планове за устойчив растеж и измерими резултати."
+        }
+      ]
+    }
+  ],
+  "max_blocks": 3,
+  "presets": [
+    {
+      "name": "Герой"
+    }
+  ]
+}
+{% endschema %}

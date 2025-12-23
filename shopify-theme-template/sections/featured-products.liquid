@@ -1,0 +1,84 @@
+<section class="services-section glass-section" aria-labelledby="ServicesHeading">
+  <div class="container">
+    <div class="section-header" data-animate="fade">
+      <h2 id="ServicesHeading" class="headline">{{ section.settings.title }}</h2>
+      <p class="subhead">{{ section.settings.subtitle }}</p>
+    </div>
+    <div class="services-grid" data-animate="fade">
+      {% for block in section.blocks %}
+        <div class="glass-card service-card">
+          <div class="service-icon">
+            {% if block.settings.icon %}
+              <img src="{{ block.settings.icon | image_url: width: 80 }}" alt="{{ block.settings.title }}">
+            {% endif %}
+          </div>
+          <h3>{{ block.settings.title }}</h3>
+          <p>{{ block.settings.description }}</p>
+          {% if block.settings.link != blank %}
+            <a href="{{ block.settings.link }}" class="service-link">Научи повече →</a>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Услуги",
+  "settings": [
+    {
+      "type": "text",
+      "id": "title",
+      "label": "Заглавие на секцията",
+      "default": "Нашите услуги"
+    },
+    {
+      "type": "textarea",
+      "id": "subtitle",
+      "label": "Подзаглавие",
+      "default": "Комплексни консултантски решения за юридически и корпоративни нужди."
+    }
+  ],
+  "blocks": [
+    {
+      "type": "service",
+      "name": "Услуга",
+      "settings": [
+        {
+          "type": "text",
+          "id": "title",
+          "label": "Име на услугата",
+          "default": "Правни консултации"
+        },
+        {
+          "type": "richtext",
+          "id": "description",
+          "label": "Описание",
+          "default": "<p>Пълна правна поддръжка за физически и юридически лица.</p>"
+        },
+        {
+          "type": "image_picker",
+          "id": "icon",
+          "label": "Икона"
+        },
+        {
+          "type": "url",
+          "id": "link",
+          "label": "Връзка"
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Услуги",
+      "blocks": [
+        { "type": "service" },
+        { "type": "service" },
+        { "type": "service" }
+      ]
+    }
+  ]
+}
+{% endschema %}
